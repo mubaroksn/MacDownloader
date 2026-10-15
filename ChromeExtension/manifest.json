@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "MacDownloader",
+  "version": "1.0.0",
+  "description": "Kirim download dari browser ke aplikasi MacDownloader (download multi-koneksi).",
+  "permissions": ["downloads", "contextMenus", "cookies", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "MacDownloader",
+    "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  },
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}
