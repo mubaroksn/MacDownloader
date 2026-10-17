@@ -40,6 +40,39 @@ jobs:
           fi
           exit "$status"
 
+      - name: Smoke test (launch app + real multi-connection download)
+        run: |
+          set -u
+          fail() { echo "::error title=Smoke test failed::$1"; pkill -x MacDownloader || true; exit 1; }
+          note() { echo "::notice title=Smoke test::$1"; echo "$1"; }
+
+          "dist/MacDownloader.app/Contents/MacOS/MacDownloader" > app.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q '"ok":true' && break
+            sleep 1
+          done
+          pgrep -x MacDownloader >/dev/null || fail "app exited on launch: $(tail -n 20 app.log | tr '\n' ' ')"
+          curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q '"ok":true' || fail "local server not answering"
+          note "app launched, local server answers /ping"
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9614/ping)
+          [ "$code" = "403" ] || fail "request without client header should be 403, got $code"
+          note "requests without the extension header are rejected (403)"
+
+          URL="https://proof.ovh.net/files/10Mb.dat"
+          curl -sL -o reference.dat "$URL" || fail "could not fetch reference file"
+          curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
+            -d "{\"url\":\"$URL\"}" http://127.0.0.1:9614/add | grep -q '"ok":true' || fail "/add rejected"
+
+          OUT="$HOME/Downloads/Lainnya/10Mb.dat"
+          for i in $(seq 1 120); do [ -f "$OUT" ] && break; sleep 1; done
+          [ -f "$OUT" ] || fail "download did not finish in 120s. state: $(cat "$HOME/Library/Application Support/MacDownloader/downloads.json" 2>/dev/null | head -c 600)"
+          cmp -s "$OUT" reference.dat || fail "downloaded file differs from reference ($(stat -f%z "$OUT") vs $(stat -f%z reference.dat) bytes)"
+          note "downloaded 10 MB via app into Downloads/Lainnya, byte-identical to curl copy (took ~${i}s)"
+
+          pgrep -x MacDownloader >/dev/null || fail "app crashed during download"
+          pkill -x MacDownloader || true
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
