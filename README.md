@@ -2,6 +2,10 @@
 
 Download manager untuk macOS ala IDM: native SwiftUI, universal (Apple Silicon + Intel), macOS 13 ke atas. Tampilan monokrom dengan mode terang dan gelap yang mengikuti setelan Mac.
 
+![MacDownloader, mode terang](docs/screenshot-light.png)
+
+![MacDownloader, mode gelap](docs/screenshot-dark.png)
+
 ## Fitur
 
 - **Download multi-koneksi.** File dipecah menjadi beberapa segmen yang diunduh paralel (default 8 koneksi, bisa sampai 32). Saat satu koneksi selesai, segmen tersisa yang paling besar dibelah lagi supaya semua koneksi tetap bekerja, seperti cara kerja IDM.
