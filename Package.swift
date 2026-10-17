@@ -21,6 +21,12 @@ let package = Package(
             path: "Sources/MacDownloader",
             linkerSettings: [.linkedFramework("IOKit")]
         ),
+        // Command-line throughput/CPU benchmark for the engine (used by CI and for tuning).
+        .executableTarget(
+            name: "mdl-bench",
+            dependencies: ["DownloadCore"],
+            path: "Sources/mdl-bench"
+        ),
         .testTarget(
             name: "DownloadCoreTests",
             dependencies: ["DownloadCore"],
