@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          ID=1DSCL2GwEltXMUuVxrFOOi9h-llFo6bjL
+          ID=1Gz05BcrlN_Trf4F_Zf-F6YrG3sQa5O7V
           UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
           curl -sL -A "$UA" -H "Accept-Language: en-US,en;q=0.9" "https://drive.google.com/drive/folders/$ID" -o f.html -w "%{http_code} %{content_type}\n"
           python3 - <<'PY'
@@ -23,11 +23,13 @@ jobs:
           # context around the 3 most common ids other than the folder id
           shown=0
           for i,(k,_) in enumerate(c.most_common(10)):
-              if k.startswith('1DSCL2'): continue
+              if k.startswith('1Gz05B'): continue
               j=h.find(k)
               note('ctx '+k[:8], h[max(0,j-400):j+600])
               shown+=1
               if shown>=3: break
+          for pat in [r'window\[\'_DRIVE_ivd\'\]', r'_DRIVE_ivd']:
+              pass
           j=h.find("_DRIVE_ivd")
           if j>=0: note('ivd', h[j-100:j+1500])
           j=h.find('vnd.google-apps')
