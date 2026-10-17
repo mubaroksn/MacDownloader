@@ -112,7 +112,8 @@ jobs:
           codesign -dv "$DEST/MacDownloader.app" 2>&1 | grep -q "Signature=adhoc" || fail "app is not ad-hoc signed"
           echo "::notice title=install.sh::local DMG installed, ad-hoc signed, no quarantine flag"
           DEST2="$RUNNER_TEMP/apps-latest"
-          MACDL_DEST="$DEST2" MACDL_NO_OPEN=1 bash install.sh || fail "install of the latest GitHub release failed"
+          MACDL_DEST="$DEST2" MACDL_NO_OPEN=1 bash install.sh > install.log 2>&1 \
+            || fail "install of the latest GitHub release failed: $(tail -n 5 install.log | tr '\n' ' ')"
           v=$(defaults read "$DEST2/MacDownloader.app/Contents/Info" CFBundleShortVersionString)
           echo "::notice title=install.sh::latest release downloaded and installed (v$v)"
 
