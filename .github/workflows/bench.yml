@@ -11,11 +11,12 @@ jobs:
       - name: Build benchmark
         run: swift build -c release --product mdl-bench 2>&1 | tail -n 5
       - name: Benchmark
+        shell: bash {0}
         run: |
           BIN=$(swift build -c release --product mdl-bench --show-bin-path)/mdl-bench
           run() {
             label="$1"; url="$2"
-            c=$(curl -sL -o /dev/null --max-time 10 -w '%{speed_download}' "$url")
+            c=$(curl -sL -o /dev/null --max-time 10 -w '%{speed_download}' "$url" || true)
             curlmbps=$(python3 -c "print(round(float('$c')*8/1e6))")
             out=$("$BIN" "$url" --connections 1,4,8,16,32 --seconds 10 2>&1 | tr '\n' ' ')
             echo "::notice title=$label::curl(1 conn)=${curlmbps}Mbps | $out"
