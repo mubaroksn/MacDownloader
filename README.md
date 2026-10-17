@@ -1,12 +1,12 @@
 # MacDownloader
 
-Download manager untuk macOS ala IDM: native SwiftUI, universal (Apple Silicon + Intel), macOS 13 ke atas.
+Download manager untuk macOS ala IDM: native SwiftUI, universal (Apple Silicon + Intel), macOS 13 ke atas. Tampilan monokrom dengan mode terang dan gelap yang mengikuti setelan Mac.
 
 ## Fitur
 
 - **Download multi-koneksi.** File dipecah menjadi beberapa segmen yang diunduh paralel (default 8 koneksi, bisa sampai 32). Saat satu koneksi selesai, segmen tersisa yang paling besar dibelah lagi supaya semua koneksi tetap bekerja, seperti cara kerja IDM.
 - **Pause / resume.** Progres tersimpan di disk, jadi download bisa dilanjutkan setelah app ditutup atau Mac di-restart. Untuk server yang tidak mendukung resume, download diulang dari awal.
-- **Retry otomatis** saat koneksi putus.
+- **Retry otomatis** saat koneksi putus. Kalau server membatasi koneksi (HTTP 429/503), jumlah koneksi dikurangi dan download tetap berjalan.
 - **Antrian.** Atur berapa download yang berjalan bersamaan (default 3); sisanya menunggu giliran.
 - **Kategori otomatis.** File disimpan ke subfolder Video, Musik, Dokumen, Program, Arsip, Gambar, atau Lainnya.
 - **Integrasi browser** untuk Chrome, Edge, Brave, dan Arc:

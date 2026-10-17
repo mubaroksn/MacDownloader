@@ -126,8 +126,8 @@ struct BrowserPage: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Theme.textPrimary)
                 Text(running
-                     ? "Mendengarkan di 127.0.0.1:\(LocalServer.port), hanya dari Mac ini."
-                     : "Port \(LocalServer.port) mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang MacDownloader.")
+                     ? "Mendengarkan di 127.0.0.1:\(String(LocalServer.port)), hanya dari Mac ini."
+                     : "Port \(String(LocalServer.port)) mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang MacDownloader.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.textSecondary)
             }

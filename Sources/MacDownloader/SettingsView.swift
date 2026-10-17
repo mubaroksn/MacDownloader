@@ -46,8 +46,8 @@ struct SettingsView: View {
             HStack {
                 Circle().fill(server.isRunning ? Color.green : Color.red).frame(width: 8, height: 8)
                 Text(server.isRunning
-                     ? "Menunggu browser di 127.0.0.1:\(LocalServer.port)"
-                     : "Server lokal tidak berjalan (port \(LocalServer.port) dipakai app lain?)")
+                     ? "Menunggu browser di 127.0.0.1:\(String(LocalServer.port))"
+                     : "Server lokal tidak berjalan (port \(String(LocalServer.port)) dipakai app lain?)")
             }
             Text("Pasang ekstensi untuk Chrome, Edge, Brave, atau Arc:").bold()
             VStack(alignment: .leading, spacing: 4) {

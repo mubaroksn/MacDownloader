@@ -328,16 +328,21 @@ struct FileRow: View {
         return VStack(alignment: .leading, spacing: 6) {
             ProgressBar(value: value, color: item.status.color)
             HStack(spacing: 4) {
-                if item.totalBytes > 0 {
-                    Text("\(Int(value * 100))%").foregroundStyle(Theme.textPrimary)
-                } else {
+                if item.status == .downloading && item.segments.isEmpty {
+                    Text("Menghubungkan…")
+                } else if item.status == .downloading {
                     Text(Format.bytes(item.downloadedBytes)).foregroundStyle(Theme.textPrimary)
-                }
-                if item.status == .downloading {
                     if item.speed > 0 { Text("· \(Format.speed(item.speed))") }
                     if let eta = item.eta { Text("· \(Format.duration(eta))") }
-                } else if item.status == .completed, let date = item.completedAt {
-                    Text("· \(date.formatted(date: .abbreviated, time: .shortened))")
+                } else if item.totalBytes > 0 {
+                    Text("\(Int(value * 100))%").foregroundStyle(Theme.textPrimary)
+                    if item.status == .completed, let date = item.completedAt {
+                        Text("· \(date.formatted(date: .numeric, time: .shortened))")
+                    } else if item.downloadedBytes > 0 {
+                        Text("· \(Format.bytes(item.downloadedBytes))")
+                    }
+                } else {
+                    Text(Format.bytes(item.downloadedBytes)).foregroundStyle(Theme.textPrimary)
                 }
             }
             .font(.system(size: 11.5))
