@@ -15,29 +15,49 @@ struct AddDownloadView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Tambah Download").font(.title3.bold())
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Link (satu per baris)").font(.callout).foregroundStyle(.secondary)
-                TextEditor(text: $text)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(height: 110)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) {
+                AppMark()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Tambah Download")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Tempel satu atau beberapa link, satu per baris.")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
+
+            TextEditor(text: $text)
+                .font(.system(size: 12.5, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .frame(height: 120)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.canvas))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.border))
 
             if urls.count <= 1 {
                 TextField("Nama file (opsional)", text: $fileName)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.canvas))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.border))
             }
 
             Toggle("Mulai sekarang", isOn: $startNow)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .font(.system(size: 13))
 
-            HStack {
+            HStack(spacing: 8) {
                 Text(urls.isEmpty ? "Masukkan link http/https" : "\(urls.count) link siap")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
                 Spacer()
                 Button("Batal") { dismiss() }
+                    .buttonStyle(SecondaryButtonStyle())
                     .keyboardShortcut(.cancelAction)
                 Button("Download") {
                     let single = urls.count == 1 ? fileName.trimmingCharacters(in: .whitespaces) : ""
@@ -46,12 +66,15 @@ struct AddDownloadView: View {
                     }
                     dismiss()
                 }
+                .buttonStyle(PrimaryButtonStyle())
                 .keyboardShortcut(.defaultAction)
                 .disabled(urls.isEmpty)
+                .opacity(urls.isEmpty ? 0.4 : 1)
             }
         }
-        .padding(20)
-        .frame(width: 520)
+        .padding(22)
+        .frame(width: 540)
+        .background(Theme.chrome)
         .onAppear {
             if let clip = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
                clip.lowercased().hasPrefix("http") {

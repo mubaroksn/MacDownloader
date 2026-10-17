@@ -80,6 +80,46 @@ jobs:
           pgrep -x MacDownloader >/dev/null || fail "app crashed during download"
           pkill -x MacDownloader || true
 
+      - name: UI screenshots (light + dark)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          APP="dist/MacDownloader.app/Contents/MacOS/MacDownloader"
+          SHOTS="$RUNNER_TEMP/shots"; mkdir -p "$SHOTS"
+          add() { curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
+                    -d "{\"url\":\"$1\",\"filename\":\"$2\"}" http://127.0.0.1:9614/add >/dev/null; }
+          waitping() { for i in $(seq 1 20); do curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q ok && return; sleep 1; done; }
+          F=https://proof.ovh.net/files
+
+          "$APP" -appearance light -snapshotPath "$SHOTS/light.png" -snapshotDelay 28 > app-light.log 2>&1 &
+          waitping
+          add "$F/100Mb.dat" "Laporan-Keuangan-Q3.pdf"
+          add "$F/1Mb.dat" "Foto-Prewedding.jpg"
+          add "$F/1Mb.dat" "Podcast-Episode-12.mp3"
+          add "$F/does-not-exist.zip" "Arsip-Proyek.zip"
+          sleep 10
+          add "$F/10Gb.dat" "Film-Liburan-Bali-4K.mp4"
+          add "$F/10Gb.dat" "Xcode-Installer.dmg"
+          sleep 24
+          pkill -x MacDownloader || true
+          sleep 2
+
+          "$APP" -appearance dark -snapshotPath "$SHOTS/dark.png" -snapshotDelay 8 > app-dark.log 2>&1 &
+          sleep 12
+          pkill -x MacDownloader || true
+
+          ls -la "$SHOTS"
+          cat app-light.log app-dark.log | tail -n 20
+          for f in "$SHOTS"/*.png; do echo "::notice title=Screenshot::$(basename "$f") $(sips -g pixelWidth -g pixelHeight "$f" | tail -n 2 | awk '{print $2}' | tr '\n' 'x')"; done
+
+          cd "$SHOTS"
+          git init -q
+          git checkout -q -b ci-screenshots
+          git add .
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" \
+            commit -qm "UI screenshots from run ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screenshots
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:

@@ -76,19 +76,9 @@ struct SettingsView: View {
     }
 
     private func installExtension() {
-        guard let source = Bundle.main.resourceURL?.appendingPathComponent("ChromeExtension") else { return }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacDownloader", isDirectory: true)
-        let dest = base.appendingPathComponent("ChromeExtension", isDirectory: true)
-        let fm = FileManager.default
-        try? fm.createDirectory(at: base, withIntermediateDirectories: true)
-        try? fm.removeItem(at: dest)
-        do {
-            try fm.copyItem(at: source, to: dest)
-            installedPath = dest.path
-            NSWorkspace.shared.activateFileViewerSelecting([dest])
-        } catch {
-            installedPath = "Gagal menyalin: \(error.localizedDescription)"
+        switch ExtensionInstaller.install() {
+        case .success(let url): installedPath = url.path
+        case .failure(let error): installedPath = "Gagal menyalin: \(error.localizedDescription)"
         }
     }
 }
