@@ -5,7 +5,7 @@ enum ExtensionInstaller {
     /// Copies the bundled Chrome extension to Application Support and reveals it in Finder.
     static func install() -> Result<URL, Error> {
         guard let source = Bundle.main.resourceURL?.appendingPathComponent("ChromeExtension") else {
-            return .failure(DownloadError.message("Ekstensi tidak ditemukan di dalam app"))
+            return .failure(CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "Ekstensi tidak ditemukan di dalam app"]))
         }
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -25,12 +25,15 @@ enum ExtensionInstaller {
 
 struct BrowserPage: View {
     @ObservedObject private var server = LocalServer.shared
+    @AppStorage(SettingsKey.monitorClipboard) private var monitorClipboard = true
     @State private var result: String?
 
     private let steps: [(String, String)] = [
         ("Siapkan ekstensi", "Klik tombol di bawah. Folder ekstensi akan terbuka di Finder."),
-        ("Buka halaman ekstensi", "Ketik chrome://extensions di browser (Edge: edge://extensions), lalu nyalakan Developer mode."),
+        ("Buka halaman ekstensi",
+         "Ketik chrome://extensions di address bar (berlaku juga di Dia, Arc, Brave; Edge: edge://extensions), lalu nyalakan Developer mode."),
         ("Load unpacked", "Klik Load unpacked dan pilih folder ChromeExtension yang tadi terbuka."),
+        ("Cek koneksi", "Dalam 30 detik, status di atas berubah jadi \"Ekstensi terhubung\". Kalau tidak, muat ulang ekstensinya."),
     ]
 
     var body: some View {
@@ -50,7 +53,7 @@ struct BrowserPage: View {
                     statusCard
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "Pasang ekstensi", detail: "Chrome · Edge · Brave · Arc")
+                        SectionTitle(title: "Pasang ekstensi", detail: "Chrome · Edge · Brave · Arc · Dia")
                         VStack(spacing: 0) {
                             ForEach(steps.indices, id: \.self) { i in
                                 HStack(alignment: .top, spacing: 14) {
@@ -97,14 +100,33 @@ struct BrowserPage: View {
                     }
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "Cara kerja", detail: nil)
+                        SectionTitle(title: "Tanpa ekstensi", detail: "Safari, Firefox, atau app apa pun")
+                        HStack(alignment: .top, spacing: 14) {
+                            feature("doc.on.clipboard", "Salin link",
+                                    "Klik kanan link download › Copy Link. MacDownloader langsung menawarkan untuk mengunduhnya.")
+                            feature("link", "Link berbagi dikenali",
+                                    "Google Drive, Google Docs, Dropbox, GitHub, SharePoint, MediaFire, dan Pixeldrain diubah ke file aslinya.")
+                            feature("arrow.down.doc", "Tarik & lepas",
+                                    "Tarik link ke jendela MacDownloader, atau tempel di tombol Tambah.")
+                        }
+                        Toggle("Tawarkan download saat link file disalin", isOn: $monitorClipboard)
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .font(.system(size: 13))
+                            .onChange(of: monitorClipboard) { ClipboardMonitor.shared.setEnabled($0) }
+                    }
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        SectionTitle(title: "Cara kerja ekstensi", detail: nil)
                         HStack(alignment: .top, spacing: 14) {
                             feature("arrow.down.circle", "Tangkap otomatis",
                                     "Download di browser langsung dialihkan ke MacDownloader.")
                             feature("cursorarrow.click.2", "Klik kanan",
                                     "Pilih \"Download dengan MacDownloader\" pada link, video, atau gambar.")
                             feature("lock", "Tetap login",
-                                    "Cookie dan referrer ikut dikirim untuk situs yang butuh login.")
+                                    "Cookie dan referrer ikut dikirim, jadi file Google Drive pribadi dan situs login tetap bisa.")
+                            feature("arrow.uturn.backward", "Tidak pernah gagal diam-diam",
+                                    "Kalau MacDownloader tidak bisa mengambil file-nya, download dikembalikan ke browser.")
                         }
                     }
                 }
@@ -115,19 +137,25 @@ struct BrowserPage: View {
     }
 
     private var statusCard: some View {
-        let running = server.isRunning
+        let connected = server.extensionConnected
+        let color = !server.isRunning ? Theme.red : (connected ? Theme.green : Theme.orange)
+        let title = !server.isRunning ? "Server lokal tidak berjalan"
+            : connected ? "Ekstensi terhubung" + (server.extensionBrowser.map { " · \($0)" } ?? "")
+            : "Ekstensi belum terhubung"
+        let detail = !server.isRunning
+            ? "Port \(String(LocalServer.port)) mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang MacDownloader."
+            : connected ? "Download di browser akan otomatis diambil alih MacDownloader."
+            : "Pasang ekstensi di bawah. Sementara itu, salin link download dan MacDownloader akan menawarkannya."
         return HStack(spacing: 14) {
             Circle()
-                .fill((running ? Theme.green : Theme.red).opacity(0.15))
+                .fill(color.opacity(0.15))
                 .frame(width: 40, height: 40)
-                .overlay(Circle().fill(running ? Theme.green : Theme.red).frame(width: 10, height: 10))
+                .overlay(Circle().fill(color).frame(width: 10, height: 10))
             VStack(alignment: .leading, spacing: 3) {
-                Text(running ? "Siap menerima download dari browser" : "Server lokal tidak berjalan")
+                Text(title)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Theme.textPrimary)
-                Text(running
-                     ? "Mendengarkan di 127.0.0.1:\(String(LocalServer.port)), hanya dari Mac ini."
-                     : "Port \(String(LocalServer.port)) mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang MacDownloader.")
+                Text(detail)
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.textSecondary)
             }

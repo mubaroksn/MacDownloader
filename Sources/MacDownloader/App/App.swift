@@ -6,9 +6,10 @@ struct MacDownloaderApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var manager = DownloadManager.shared
     @StateObject private var ui = UIState.shared
+    @AppStorage(SettingsKey.showMenuBar) private var showMenuBar = true
 
     var body: some Scene {
-        WindowGroup("MacDownloader") {
+        WindowGroup("MacDownloader", id: MacDownloaderApp.mainWindowID) {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(ui)
@@ -34,18 +35,38 @@ struct MacDownloaderApp: App {
             SettingsView()
                 .environmentObject(manager)
         }
+
+        MenuBarExtra(isInserted: $showMenuBar) {
+            MenuBarPanel()
+                .environmentObject(manager)
+                .environmentObject(ui)
+        } label: {
+            MenuBarIcon(active: manager.activeCount > 0)
+        }
+        .menuBarExtraStyle(.window)
     }
+
+    static let mainWindowID = "main"
 }
 
 @MainActor
 final class UIState: ObservableObject {
     static let shared = UIState()
     @Published var showAddSheet = false
+    /// A download link the user just copied elsewhere (clipboard monitor).
+    @Published var clipboardOffer: URL?
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            LocalServer.shared.dispatcher = DownloadManager.shared
+        }
         LocalServer.shared.start()
+        MainActor.assumeIsolated {
+            LinkOffer.registerCategories()
+            ClipboardMonitor.shared.setEnabled(UserDefaults.standard.object(forKey: SettingsKey.monitorClipboard) as? Bool ?? true)
+        }
 
         // Optional overrides, used by CI screenshots: -appearance dark|light
         switch UserDefaults.standard.string(forKey: "appearance") {
@@ -59,8 +80,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let delay = UserDefaults.standard.double(forKey: "snapshotDelay")
             DispatchQueue.main.asyncAfter(deadline: .now() + (delay > 0 ? delay : 6)) {
                 Self.snapshot(to: URL(fileURLWithPath: path))
+                if let panelPath = UserDefaults.standard.string(forKey: "snapshotMenuBarPath") {
+                    MainActor.assumeIsolated { Self.snapshotMenuBarPanel(to: URL(fileURLWithPath: panelPath)) }
+                }
             }
         }
+    }
+
+    /// Renders the menu bar panel offscreen (a MenuBarExtra window only exists after a click).
+    @MainActor
+    private static func snapshotMenuBarPanel(to url: URL) {
+        let root = MenuBarPanel()
+            .environmentObject(DownloadManager.shared)
+            .environmentObject(UIState.shared)
+        let host = NSHostingView(rootView: root)
+        host.frame = NSRect(origin: .zero, size: host.fittingSize)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

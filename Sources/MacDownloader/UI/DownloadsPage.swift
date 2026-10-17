@@ -52,6 +52,9 @@ struct DownloadsPage: View {
             Hairline()
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
+                    if let offer = ui.clipboardOffer {
+                        ClipboardOfferBanner(url: offer)
+                    }
                     if !folders.isEmpty && search.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             SectionTitle(title: "Kategori", detail: nil)
@@ -332,7 +335,7 @@ struct FileRow: View {
                     Text("Menghubungkan…")
                 } else if item.status == .downloading {
                     Text(Format.bytes(item.downloadedBytes)).foregroundStyle(Theme.textPrimary)
-                    if item.speed > 0 { Text("· \(Format.speed(item.speed))") }
+                    if item.speed >= 1 { Text("· \(Format.speed(item.speed))") }
                     if let eta = item.eta { Text("· \(Format.duration(eta))") }
                 } else if item.totalBytes > 0 {
                     Text("\(Int(value * 100))%").foregroundStyle(Theme.textPrimary)

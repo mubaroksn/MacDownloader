@@ -61,7 +61,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopBar()
+            TopBar(openBrowserPage: { page = .browser })
             Hairline()
             HStack(spacing: 0) {
                 Rail(page: $page)
@@ -106,7 +106,7 @@ struct ContentView: View {
         }
         .dropDestination(for: URL.self) { urls, _ in
             let web = urls.filter { ["http", "https"].contains($0.scheme?.lowercased() ?? "") }
-            web.forEach { manager.add(urlString: $0.absoluteString) }
+            web.forEach { manager.add(urlString: $0.absoluteString, origin: .dragAndDrop) }
             return !web.isEmpty
         }
     }
@@ -117,6 +117,7 @@ struct ContentView: View {
 struct TopBar: View {
     @EnvironmentObject private var manager: DownloadManager
     @ObservedObject private var server = LocalServer.shared
+    var openBrowserPage: () -> Void = {}
 
     var body: some View {
         let totalSpeed = manager.items.filter { $0.status == .downloading }.reduce(0) { $0 + $1.speed }
@@ -127,7 +128,7 @@ struct TopBar: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
-            if totalSpeed > 0 {
+            if totalSpeed >= 1 {
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold))
                     Text(Format.speed(totalSpeed)).monospacedDigit()
@@ -138,17 +139,24 @@ struct TopBar: View {
                 .frame(height: 26)
                 .background(Capsule().fill(Theme.hover))
             }
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(server.isRunning ? Theme.green : Theme.textTertiary)
-                    .frame(width: 7, height: 7)
-                Text(server.isRunning ? "Browser terhubung" : "Browser tidak terhubung")
+            Button(action: openBrowserPage) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(server.extensionConnected ? Theme.green : Theme.orange)
+                        .frame(width: 7, height: 7)
+                    Text(server.extensionConnected
+                         ? "Ekstensi terhubung" + (server.extensionBrowser.map { " · \($0)" } ?? "")
+                         : "Ekstensi belum terhubung")
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .overlay(Capsule().strokeBorder(Theme.border))
+                .contentShape(Capsule())
             }
-            .font(.system(size: 12))
-            .foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 10)
-            .frame(height: 26)
-            .overlay(Capsule().strokeBorder(Theme.border))
+            .buttonStyle(.plain)
+            .help("Status ekstensi browser")
         }
         .padding(.trailing, 16)
         .frame(height: 52)

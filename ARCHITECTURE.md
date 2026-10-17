@@ -1,0 +1,100 @@
+# MacDownloader architecture
+
+## Layout
+
+```
+Package.swift                     SwiftPM: DownloadCore (library) + MacDownloader (app) + tests
+Sources/
+  DownloadCore/                   UI-free engine. No AppKit/SwiftUI. Unit-testable.
+    Models.swift                  SegmentState, RemoteRequest, RemoteResource, TransferProgress
+    Errors.swift                  DownloadEngineError + transient/connection-failure classification
+    HTTPHeaders.swift             Header hygiene (CR/LF stripping, reserved headers, identity encoding)
+    ResourceProber.swift          Range probe (GET bytes=0-0) + per-transfer URLSession configuration
+    SegmentPlanner.swift          Initial split + resume-data validation
+    SegmentScheduler.swift        Work-stealing scheduler (reserve/commit, split, yield, ramp-up)
+    FileSink.swift                F_PREALLOCATE + ftruncate + concurrent pwrite at offsets
+    HTTPByteStream.swift          URLSession delegate → AsyncThrowingStream<Data> with backpressure
+    RangeDownloader.swift         TaskGroup coordinator: workers + supervisor
+  MacDownloader/
+    App/                          @main, scenes (window, Settings, MenuBarExtra), CI snapshot hooks
+    Downloads/                    DownloadManager (queue, persistence, sampling), DownloadItem
+    Ingest/                       DownloadRequest + DownloadDispatching, LocalServer (Chromium bridge)
+    System/                       SystemActivity (IOKit sleep assertion, App Nap)
+    UI/                           SwiftUI views
+Tests/DownloadCoreTests/          Unit tests + end-to-end tests against LocalRangeServer
+ChromeExtension/                  MV3 extension (talks to LocalServer on 127.0.0.1:9614)
+scripts/build_app.sh              Universal build → .app → .dmg (used by CI)
+```
+
+The rule: **DownloadCore knows nothing about the app**, and the app talks to the engine through
+four calls: `ResourceProber.probe`, `RangeDownloader.init(... resumeFrom:)`, `run()`
+(cancel the Task to pause), and `progress` / `snapshot()`.
+
+## Data flow
+
+```
+Add sheet / drag & drop / menu bar ─┐
+Chromium extension → LocalServer ───┼─► DownloadRequest ─► DownloadDispatching.enqueue
+(future) Native Messaging host ─────┤                         (DownloadManager, @MainActor)
+(future) Safari Web Extension ──────┘                                   │
+                                                                         ▼
+                        ResourceProber.probe ─► plan destination (X.ext.mdownload)
+                                                                         │
+                                RangeDownloader.run()  (cooperative pool, off main)
+                                   ├─ worker × N: claim → HTTPByteStream → reserve → pwrite → commit
+                                   └─ supervisor: ends when workers finish, ramps connections back up
+                                                                         │
+                         fsync → rename .mdownload → final name → notify
+```
+
+## Engine design decisions
+
+| Decision | Why |
+|---|---|
+| One `URLSession` (ephemeral, 1 conn/host) **per range request** | A shared session multiplexes all ranges for an HTTP/2 host onto one TCP connection, so N "connections" would share one congestion window and give no speed-up. |
+| Delegate API bridged to `AsyncThrowingStream<Data>` instead of `URLSession.bytes` | `AsyncBytes` iterates one byte at a time; at 100 MB/s that burns a core. Chunks of 16–512 KB give one `pwrite` per chunk. |
+| Backpressure: suspend task above 4 MB buffered, resume below 1 MB | URLSession delegate delivery has no flow control; this bounds memory per connection if the disk stalls (e.g. external HDD). |
+| `pwrite` at offsets into one file, `F_PREALLOCATE` + `ftruncate` up front | No part files and no merge copy (half the disk I/O, no 2× free space). Full disk fails immediately. macOS has no `posix_fallocate`. |
+| Temp file next to the destination (`.mdownload`) | Completion is an atomic same-volume `rename`, not a copy. |
+| `reserve` / `commit` counters in the scheduler | Splits use reserved bytes (safe against in-flight writes); persistence uses committed bytes only, so a snapshot can never claim bytes that aren't on disk. |
+| Work stealing (split the back half of the largest in-flight segment) | Fast connections finish early and take over from slow ones, so the tail of the download isn't one slow connection. |
+| `If-Range` with strong ETag / Last-Modified | A file that changed on the server is restarted, never spliced. |
+| `Accept-Encoding: identity` | Otherwise gzip/br changes the meaning of Content-Length and byte ranges. |
+| Shed a connection on 429/503/connect failure, add one back per quiet interval | AIMD-style: settles at what the server tolerates instead of failing or hammering. |
+| Progress is polled, not pushed | Workers update a lock-protected counter; the UI samples at 2 Hz only while something is transferring. No per-chunk main-thread hops. |
+
+## Power
+
+`SystemActivity` holds a `PreventUserIdleSystemSleep` IOKit assertion (display may still sleep)
+and a `ProcessInfo` activity (opts out of App Nap) **only while a transfer is running**, and
+releases both when the last one stops. CI verifies both states with `pmset -g assertions`.
+The sampling timer has 200 ms tolerance and is invalidated when idle; the menu bar icon only
+changes on state transitions.
+
+## Browser integration roadmap
+
+All entry points build a `DownloadRequest` and call `DownloadDispatching.enqueue`, so new sources
+don't touch the queue.
+
+- **Chromium (today):** MV3 extension → `POST 127.0.0.1:9614/add` → `LocalServer`.
+- **Chromium Native Messaging (next):** a small command-line target speaking Chrome's
+  4-byte-length-prefixed JSON over stdio, installed as
+  `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/<name>.json`. It can forward
+  to the running app over the existing localhost endpoint or an XPC service. Fits in SwiftPM as a
+  second executable target, copied into `Contents/Helpers`.
+- **Safari Web Extension:** requires an app extension (`.appex`) target, which SwiftPM cannot
+  build. That is the point to move the app shell to an Xcode project (or XcodeGen/Tuist), keeping
+  `DownloadCore` as a local Swift package. The extension's `SafariWebExtensionHandler` forwards to
+  the app via an App Group container or XPC, creating `DownloadRequest(origin: .safariExtension)`.
+
+## Testing
+
+`swift test` runs on every CI build:
+
+- Planner/scheduler/sink unit tests (tiling, stealing, reservation discard, yield rules, concurrent `pwrite`, disk-full).
+- End-to-end against `LocalRangeServer` (real sockets): byte-exact parallel download with ≥ 4
+  concurrent connections, pause/resume fetching only missing bytes, 429 throttling, ramp-up after
+  recovery, no-range fallback, remote-change detection, probe failure.
+
+CI then builds the universal app, runs a smoke test against a public server, captures UI
+screenshots and checks the power assertion.

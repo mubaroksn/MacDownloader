@@ -1,3 +1,4 @@
+import DownloadCore
 import Foundation
 
 enum DownloadStatus: String, Codable {
@@ -64,16 +65,6 @@ enum FileCategory: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-struct SegmentState: Codable, Equatable {
-    var start: Int64
-    /// Inclusive end byte, or -1 when the total size is unknown.
-    var end: Int64
-    var downloaded: Int64
-
-    var length: Int64 { end < 0 ? -1 : end - start + 1 }
-    var isDone: Bool { end >= 0 && downloaded >= length }
-}
-
 struct DownloadItem: Identifiable, Codable, Equatable {
     var id = UUID()
     var url: URL
@@ -92,6 +83,13 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     var headers: [String: String] = [:]
     /// True when the user or browser chose the name, so the server's name isn't applied.
     var nameLocked = false
+    /// In-progress file next to the final destination ("name.ext.mdownload").
+    var tempPath: String?
+    /// ETag / Last-Modified captured by the probe; guards resume against a changed remote file.
+    var validator: String?
+    /// The link as the user/browser gave it. `url` becomes the resolved (often expiring) CDN URL;
+    /// every (re)start resolves again from this one.
+    var sourceURL: URL?
 
     // Runtime-only values, not persisted.
     var speed: Double = 0
@@ -100,7 +98,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, url, fileName, category, status, totalBytes, downloadedBytes,
              supportsRanges, segments, destinationPath, errorMessage, addedAt,
-             completedAt, headers, nameLocked
+             completedAt, headers, nameLocked, tempPath, validator, sourceURL
     }
 
     init(url: URL, fileName: String, category: FileCategory) {
@@ -126,6 +124,9 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
         headers = try c.decodeIfPresent([String: String].self, forKey: .headers) ?? [:]
         nameLocked = try c.decodeIfPresent(Bool.self, forKey: .nameLocked) ?? false
+        tempPath = try c.decodeIfPresent(String.self, forKey: .tempPath)
+        validator = try c.decodeIfPresent(String.self, forKey: .validator)
+        sourceURL = try c.decodeIfPresent(URL.self, forKey: .sourceURL)
     }
 
     var progress: Double {
@@ -153,7 +154,7 @@ enum Format {
     }
 
     static func speed(_ bytesPerSecond: Double) -> String {
-        guard bytesPerSecond > 0 else { return "" }
+        guard bytesPerSecond >= 1 else { return "" }
         return bytes(Int64(bytesPerSecond)) + "/s"
     }
 

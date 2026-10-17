@@ -9,6 +9,9 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.folder) private var folder = ""
     @AppStorage(SettingsKey.useCategoryFolders) private var useCategoryFolders = true
     @AppStorage(SettingsKey.notify) private var notify = true
+    @AppStorage(SettingsKey.preventSleep) private var preventSleep = true
+    @AppStorage(SettingsKey.showMenuBar) private var showMenuBar = true
+    @AppStorage(SettingsKey.monitorClipboard) private var monitorClipboard = true
     @State private var installedPath: String?
 
     var body: some View {
@@ -18,7 +21,7 @@ struct SettingsView: View {
             browser
                 .tabItem { Label("Browser", systemImage: "globe") }
         }
-        .frame(width: 500, height: 330)
+        .frame(width: 520, height: 380)
     }
 
     private var general: some View {
@@ -35,6 +38,11 @@ struct SettingsView: View {
             }
             Toggle("Pisahkan per kategori (Video, Musik, Dokumen…)", isOn: $useCategoryFolders)
             Toggle("Notifikasi saat download selesai", isOn: $notify)
+            Toggle("Cegah Mac tidur saat mengunduh (layar tetap boleh mati)", isOn: $preventSleep)
+                .onChange(of: preventSleep) { _ in manager.refreshSystemActivity() }
+            Toggle("Tampilkan ikon di menu bar", isOn: $showMenuBar)
+            Toggle("Tawarkan download saat link file disalin (semua browser)", isOn: $monitorClipboard)
+                .onChange(of: monitorClipboard) { ClipboardMonitor.shared.setEnabled($0) }
             Text("Perubahan jumlah koneksi berlaku untuk download berikutnya.")
                 .font(.caption).foregroundStyle(.secondary)
         }

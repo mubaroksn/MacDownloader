@@ -32,6 +32,20 @@ jobs:
           fi
           echo "BUILD=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
 
+      - name: Unit & integration tests (DownloadCore)
+        run: |
+          set +e
+          swift test 2>&1 | tee test.log
+          status=${PIPESTATUS[0]}
+          summary=$(grep -E "Executed [0-9]+ tests" test.log | tail -n 1)
+          [ -n "$summary" ] && echo "::notice title=Tests::$summary"
+          if [ "$status" -ne 0 ]; then
+            msg=$( (grep -E "error:|failed|Fatal|crash" test.log || tail -n 60 test.log) | sort -u | head -n 80 \
+              | sed -e 's/%/%25/g' -e "s|$GITHUB_WORKSPACE/||g" | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Tests failed::$msg"
+          fi
+          exit "$status"
+
       - name: Build app and DMG
         run: |
           swift --version
@@ -77,11 +91,25 @@ jobs:
           cmp -s "$OUT" reference.dat || fail "downloaded file differs from reference ($(stat -f%z "$OUT") vs $(stat -f%z reference.dat) bytes)"
           note "downloaded 10 MB via app into Downloads/Lainnya, byte-identical to curl copy (took ~${i}s)"
 
+          # Browser hand-off: the app must refuse links it cannot fetch (so the browser keeps them)…
+          r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
+            -d '{"url":"https://github.com/mubaroksn/MacDownloader/raw/main/does-not-exist.bin","handoff":true}' http://127.0.0.1:9614/add)
+          echo "$r" | grep -q '"accepted":false' || fail "hand-off of a 404 link should be refused, got: $r"
+          # …and accept share links it can resolve (GitHub blob page -> raw file).
+          r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
+            -d '{"url":"https://github.com/mubaroksn/MacDownloader/blob/main/Package.swift","handoff":true}' http://127.0.0.1:9614/add)
+          echo "$r" | grep -q '"accepted":true' || fail "hand-off of a GitHub blob link should be accepted, got: $r"
+          OUT2="$HOME/Downloads/Lainnya/Package.swift"
+          for i in $(seq 1 60); do [ -f "$OUT2" ] && break; sleep 1; done
+          [ -f "$OUT2" ] && head -n 1 "$OUT2" | grep -q "swift-tools-version" || fail "GitHub blob link did not resolve to the raw file"
+          note "hand-off: refused a 404 link, resolved a GitHub blob link to the raw file"
+          r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" -d '{"browser":"CI"}' http://127.0.0.1:9614/hello)
+          echo "$r" | grep -q '"ok":true' || fail "/hello heartbeat failed: $r"
+
           pgrep -x MacDownloader >/dev/null || fail "app crashed during download"
           pkill -x MacDownloader || true
 
       - name: UI screenshots (light + dark)
-        if: github.event_name != 'pull_request'
         continue-on-error: true
         run: |
           APP="dist/MacDownloader.app/Contents/MacOS/MacDownloader"
@@ -91,17 +119,25 @@ jobs:
           waitping() { for i in $(seq 1 20); do curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q ok && return; sleep 1; done; }
           F=https://proof.ovh.net/files
 
-          "$APP" -appearance light -snapshotPath "$SHOTS/light.png" -snapshotDelay 28 > app-light.log 2>&1 &
+          "$APP" -appearance light -snapshotPath "$SHOTS/light.png" -snapshotMenuBarPath "$SHOTS/menubar.png" -snapshotDelay 28 > app-light.log 2>&1 &
           waitping
           add "$F/100Mb.dat" "Laporan-Keuangan-Q3.pdf"
           add "$F/1Mb.dat" "Foto-Prewedding.jpg"
           add "$F/1Mb.dat" "Podcast-Episode-12.mp3"
+          osascript -e 'tell application "Finder" to activate' >/dev/null 2>&1 || true
+          sleep 1
+          printf '%s' "https://github.com/mubaroksn/MacDownloader/releases/download/v1.1.0/MacDownloader-1.1.0.dmg" | pbcopy
           add "$F/does-not-exist.zip" "Arsip-Proyek.zip"
           sleep 10
           add "$F/10Gb.dat" "Film-Liburan-Bali-4K.mp4"
           add "$F/10Gb.dat" "Xcode-Installer.dmg"
-          sleep 24
+          sleep 20
+          python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/Library/Application Support/MacDownloader/downloads.json'))); print('::notice title=State::' + ' | '.join('%s %s %s/%s segs=%d err=%s' % (i['fileName'], i['status'], i['downloadedBytes'], i['totalBytes'], len(i['segments']), i.get('errorMessage')) for i in d))"
+          pmset -g assertions | grep -i -A1 "MacDownloader" | head -n 4 | tr '\n' ' ' | sed 's/^/::notice title=Power assertion::/' ; echo
+          sleep 4
           pkill -x MacDownloader || true
+          sleep 3
+          pmset -g assertions | grep -qi "MacDownloader" && echo "::warning title=Power assertion::still held after quit" || echo "::notice title=Power assertion::released after quit"
           sleep 2
 
           "$APP" -appearance dark -snapshotPath "$SHOTS/dark.png" -snapshotDelay 8 > app-dark.log 2>&1 &

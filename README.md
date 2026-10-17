@@ -8,17 +8,16 @@ Download manager untuk macOS ala IDM: native SwiftUI, universal (Apple Silicon +
 
 ## Fitur
 
-- **Download multi-koneksi.** File dipecah menjadi beberapa segmen yang diunduh paralel (default 8 koneksi, bisa sampai 32). Saat satu koneksi selesai, segmen tersisa yang paling besar dibelah lagi supaya semua koneksi tetap bekerja, seperti cara kerja IDM.
-- **Pause / resume.** Progres tersimpan di disk, jadi download bisa dilanjutkan setelah app ditutup atau Mac di-restart. Untuk server yang tidak mendukung resume, download diulang dari awal.
-- **Retry otomatis** saat koneksi putus. Kalau server membatasi koneksi (HTTP 429/503), jumlah koneksi dikurangi dan download tetap berjalan.
-- **Antrian.** Atur berapa download yang berjalan bersamaan (default 3); sisanya menunggu giliran.
-- **Kategori otomatis.** File disimpan ke subfolder Video, Musik, Dokumen, Program, Arsip, Gambar, atau Lainnya.
-- **Integrasi browser** untuk Chrome, Edge, Brave, dan Arc:
-  - Download dari browser otomatis diambil alih oleh app.
-  - Klik kanan pada link lalu pilih **Download dengan MacDownloader**.
-  - Cookie dan referrer ikut dikirim, sehingga file di situs yang perlu login tetap bisa diunduh.
-  - Kalau app tidak berjalan, download kembali ditangani browser seperti biasa.
-- Tarik link ke jendela app, tempel banyak link sekaligus, notifikasi saat selesai, dan badge di Dock.
+- **Download multi-koneksi.** File dipecah menjadi segmen yang diunduh paralel (default 8 koneksi, maksimal 32), masing-masing di koneksi TCP terpisah. Koneksi yang selesai lebih dulu mengambil alih setengah sisa segmen terbesar (work stealing), sehingga ujung download tidak tertahan oleh satu koneksi lambat.
+- **Langsung ke disk.** Data ditulis ke posisinya di satu file (`pwrite`) yang ruangnya sudah dipesan di awal. Tidak ada file part dan tidak ada proses penggabungan. Kalau disk tidak cukup, download langsung ditolak di awal.
+- **Pause/resume yang aman.** Progres tersimpan dan bisa dilanjutkan setelah restart. File di server divalidasi dengan `If-Range` (ETag/Last-Modified): kalau file di server berubah, download diulang, bukan disambung.
+- **Tahan server yang membatasi.** Saat server menolak (429/503) atau koneksi gagal, jumlah koneksi dikurangi, lalu dinaikkan lagi bertahap saat server pulih.
+- **Hemat baterai.** Mac dicegah tidur hanya selama ada download aktif (layar tetap boleh mati), dan pembaruan tampilan hanya berjalan saat ada transfer.
+- **Ikon menu bar** untuk melihat progres, menjeda, atau melanjutkan download dengan cepat.
+- **Antrian & kategori.** Ada batas download bersamaan, dan file otomatis masuk ke subfolder Video, Musik, Dokumen, Program, Arsip, Gambar, atau Lainnya.
+- **Integrasi browser** untuk Chrome, Edge, Brave, dan Arc: download diambil alih otomatis dan tersedia menu klik kanan. Cookie dan referrer ikut dikirim.
+
+Detail teknis ada di [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Instalasi
 
@@ -40,18 +39,23 @@ Buka tab **Actions → Build macOS app → Run workflow**, isi kolom versi (misa
 
 Setiap build juga menjalankan smoke test di Mac: aplikasi dibuka, lalu dites mengunduh file 10 MB lewat jalur ekstensi browser, dan hasilnya dicocokkan byte per byte.
 
-Build lokal di Mac (butuh Xcode Command Line Tools):
+Build dan tes lokal di Mac (butuh Xcode Command Line Tools):
 
 ```bash
+swift test             # unit + integration test engine
 scripts/build_app.sh   # hasil ada di dist/
 ```
+
+Untuk mengembangkan di Xcode: buka `Package.swift` langsung (File › Open). Xcode menampilkan target `MacDownloader`, `DownloadCore`, dan `DownloadCoreTests`.
 
 ## Struktur
 
 | File | Isi |
 |---|---|
-| `Sources/MacDownloader/DownloadEngine.swift` | Engine segmen paralel, pembelahan dinamis, retry, penggabungan file |
-| `Sources/MacDownloader/DownloadManager.swift` | Antrian, kategori, penyimpanan progres, notifikasi |
-| `Sources/MacDownloader/LocalServer.swift` | Server lokal untuk ekstensi browser |
-| `Sources/MacDownloader/*View.swift` | Tampilan SwiftUI |
+| `Sources/DownloadCore/` | Engine tanpa UI: probe, segmentasi, transfer paralel, penulisan disk |
+| `Sources/MacDownloader/Downloads/` | Antrian, penyimpanan progres, notifikasi |
+| `Sources/MacDownloader/Ingest/` | Pintu masuk download (ekstensi browser, dll.) |
+| `Sources/MacDownloader/System/` | Manajemen daya (IOKit, App Nap) |
+| `Sources/MacDownloader/UI/` | Tampilan SwiftUI dan menu bar |
+| `Tests/DownloadCoreTests/` | Unit test dan tes end-to-end dengan server lokal |
 | `ChromeExtension/` | Ekstensi Chromium (Manifest V3) |
