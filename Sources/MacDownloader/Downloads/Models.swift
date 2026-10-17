@@ -150,7 +150,7 @@ enum Format {
     }
 
     static func speed(_ bytesPerSecond: Double) -> String {
-        guard bytesPerSecond > 0 else { return "" }
+        guard bytesPerSecond >= 1 else { return "" }
         return bytes(Int64(bytesPerSecond)) + "/s"
     }
 

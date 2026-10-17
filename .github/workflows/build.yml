@@ -114,6 +114,8 @@ jobs:
           add "$F/10Gb.dat" "Film-Liburan-Bali-4K.mp4"
           add "$F/10Gb.dat" "Xcode-Installer.dmg"
           sleep 20
+          for n in 1 2 3; do echo "::notice title=OVH probe $n::$(curl -s -o /dev/null -w '%{http_code}' -r 0-0 "$F/10Gb.dat")"; done
+          python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/Library/Application Support/MacDownloader/downloads.json'))); print('::notice title=State::' + ' | '.join('%s %s %s/%s segs=%d err=%s' % (i['fileName'], i['status'], i['downloadedBytes'], i['totalBytes'], len(i['segments']), i.get('errorMessage')) for i in d))"
           pmset -g assertions | grep -i -A1 "MacDownloader" | head -n 4 | tr '\n' ' ' | sed 's/^/::notice title=Power assertion::/' ; echo
           sleep 4
           pkill -x MacDownloader || true
