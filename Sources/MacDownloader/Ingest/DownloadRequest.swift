@@ -7,7 +7,7 @@ import Foundation
 /// and hands it to a `DownloadDispatching`. Validation and header hygiene live here, once.
 struct DownloadRequest: Sendable, Equatable {
     enum Origin: String, Sendable, Codable {
-        case manual, dragAndDrop, menuBar
+        case manual, dragAndDrop, menuBar, clipboard
         case browserExtension      // Chromium extension → localhost bridge (LocalServer)
         case nativeMessaging       // Chromium Native Messaging host (stdio JSON)
         case safariExtension       // Safari Web Extension handler

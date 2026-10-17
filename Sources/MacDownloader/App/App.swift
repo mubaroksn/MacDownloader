@@ -53,6 +53,8 @@ struct MacDownloaderApp: App {
 final class UIState: ObservableObject {
     static let shared = UIState()
     @Published var showAddSheet = false
+    /// A download link the user just copied elsewhere (clipboard monitor).
+    @Published var clipboardOffer: URL?
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -61,6 +63,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             LocalServer.shared.dispatcher = DownloadManager.shared
         }
         LocalServer.shared.start()
+        MainActor.assumeIsolated {
+            LinkOffer.registerCategories()
+            ClipboardMonitor.shared.setEnabled(UserDefaults.standard.object(forKey: SettingsKey.monitorClipboard) as? Bool ?? true)
+        }
 
         // Optional overrides, used by CI screenshots: -appearance dark|light
         switch UserDefaults.standard.string(forKey: "appearance") {

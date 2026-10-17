@@ -11,7 +11,12 @@ public enum ResourceProber {
         while true {
             attempt += 1
             do {
-                return try await probeOnce(request, timeout: timeout)
+                do {
+                    return try await probeOnce(request, timeout: timeout, useRange: true)
+                } catch DownloadEngineError.httpStatus(let code) where rangeRejectionCodes.contains(code) {
+                    // Some servers/WAFs reject any Range header: fall back to one plain stream.
+                    return try await probeOnce(request, timeout: timeout, useRange: false)
+                }
             } catch {
                 try Task.checkCancellation()
                 let retryable = (error as? DownloadEngineError)?.isTransient ?? error.isTransientNetworkError
@@ -21,11 +26,15 @@ public enum ResourceProber {
         }
     }
 
-    static func probeOnce(_ request: RemoteRequest, timeout: TimeInterval) async throws -> RemoteResource {
+    /// Statuses some servers return for a Range request they would serve without one.
+    static let rangeRejectionCodes: Set<Int> = [400, 403, 405, 406, 416, 501]
+
+    static func probeOnce(_ request: RemoteRequest, timeout: TimeInterval,
+                          useRange: Bool) async throws -> RemoteResource {
         var urlRequest = URLRequest(url: request.url, cachePolicy: .reloadIgnoringLocalCacheData,
                                     timeoutInterval: timeout)
         HTTPHeaders.apply(request.headers, to: &urlRequest)
-        urlRequest.setValue("bytes=0-0", forHTTPHeaderField: "Range")
+        if useRange { urlRequest.setValue("bytes=0-0", forHTTPHeaderField: "Range") }
 
         let session = URLSession(configuration: .transferConfiguration(timeout: timeout))
         defer { session.finishTasksAndInvalidate() }
@@ -66,7 +75,8 @@ public enum ResourceProber {
                               totalBytes: total,
                               acceptsRanges: acceptsRanges,
                               suggestedFilename: name,
-                              validator: validator(from: http))
+                              validator: validator(from: http),
+                              contentType: http.mimeType?.lowercased())
     }
 
     /// If-Range only accepts strong ETags or an HTTP date.

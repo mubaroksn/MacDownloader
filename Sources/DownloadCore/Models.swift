@@ -46,17 +46,25 @@ public struct RemoteResource: Codable, Equatable, Sendable {
     public var suggestedFilename: String?
     /// Strong ETag (preferred) or Last-Modified, sent as `If-Range` so a changed file is never spliced.
     public var validator: String?
+    /// MIME type without parameters ("application/zip"), when the server sent one.
+    public var contentType: String?
 
     public init(finalURL: URL, totalBytes: Int64, acceptsRanges: Bool,
-                suggestedFilename: String? = nil, validator: String? = nil) {
+                suggestedFilename: String? = nil, validator: String? = nil, contentType: String? = nil) {
         self.finalURL = finalURL
         self.totalBytes = totalBytes
         self.acceptsRanges = acceptsRanges
         self.suggestedFilename = suggestedFilename
         self.validator = validator
+        self.contentType = contentType
     }
 
     public var hasKnownLength: Bool { totalBytes >= 0 }
+
+    /// The server answered with a web page rather than a file.
+    public var isHTML: Bool {
+        contentType == "text/html" || contentType == "application/xhtml+xml"
+    }
 }
 
 /// Point-in-time transfer statistics, cheap enough to sample from a UI timer.

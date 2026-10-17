@@ -1,6 +1,7 @@
 import AppKit
 import DownloadCore
 import Foundation
+import UniformTypeIdentifiers
 import UserNotifications
 
 enum SettingsKey {
@@ -11,6 +12,7 @@ enum SettingsKey {
     static let notify = "notifyOnComplete"
     static let preventSleep = "preventSleepWhileDownloading"
     static let showMenuBar = "showMenuBarExtra"
+    static let monitorClipboard = "monitorClipboard"
 }
 
 /// Owns the queue and its persistence; the UI's single source of truth.
@@ -78,6 +80,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         var item = DownloadItem(url: request.url, fileName: name.isEmpty ? "download" : name,
                                 category: FileCategory.from(fileName: name))
         item.headers = request.headers
+        item.sourceURL = request.url
         item.nameLocked = request.suggestedFilename != nil
         item.status = request.startImmediately ? .queued : .paused
         items.insert(item, at: 0)
@@ -180,7 +183,9 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
     private func runTransfer(_ id: UUID) async {
         do {
             guard let snapshot = item(id) else { return }
-            let resource = try await ResourceProber.probe(RemoteRequest(url: snapshot.url, headers: snapshot.headers))
+            let resolved = try await DownloadResolver.resolve(
+                RemoteRequest(url: snapshot.sourceURL ?? snapshot.url, headers: snapshot.headers))
+            let resource = resolved.resource
             try Task.checkCancellation()
             guard let i = index(id) else { return }
 
@@ -199,7 +204,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             var config = RangeDownloader.Configuration()
             config.connections = connectionsPerDownload
             let downloader = RangeDownloader(
-                request: RemoteRequest(url: resource.finalURL, headers: items[i].headers),
+                request: RemoteRequest(url: resource.finalURL, headers: resolved.request.headers),
                 resource: resource,
                 fileURL: URL(fileURLWithPath: items[i].tempPath!),
                 resumeFrom: resumeSegments,
@@ -235,8 +240,8 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
     /// Picks the final name and folder now, so data is written in place ("X.mp4.mdownload")
     /// and completion is an atomic rename on the same volume rather than a copy.
     private func planDestination(at i: Int, resource: RemoteResource) throws {
-        if let name = resource.suggestedFilename, !items[i].nameLocked {
-            items[i].fileName = sanitize(name)
+        if !items[i].nameLocked {
+            items[i].fileName = bestName(current: items[i].fileName, resource: resource)
             items[i].category = FileCategory.from(fileName: items[i].fileName)
         }
         var folder = downloadFolder
@@ -246,6 +251,23 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         items[i].fileName = destination.lastPathComponent
         items[i].destinationPath = destination.path
         items[i].tempPath = destination.path + "." + Self.tempExtension
+    }
+
+    /// Server name (Content-Disposition) > final URL name > current name, plus an extension
+    /// from the MIME type when none is known ("download" → "download.zip").
+    private func bestName(current: String, resource: RemoteResource) -> String {
+        if let name = resource.suggestedFilename.map(sanitize), !name.isEmpty { return name }
+        var name = current
+        let finalName = sanitize(resource.finalURL.lastPathComponent)
+        if (name as NSString).pathExtension.isEmpty, !(finalName as NSString).pathExtension.isEmpty {
+            name = finalName
+        }
+        if (name as NSString).pathExtension.isEmpty,
+           let mime = resource.contentType, mime != "application/octet-stream",
+           let ext = UTType(mimeType: mime)?.preferredFilenameExtension {
+            name += "." + ext
+        }
+        return name.isEmpty ? "download" : name
     }
 
     private func moveIntoPlace(_ id: UUID) throws {

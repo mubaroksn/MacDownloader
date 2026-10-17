@@ -224,3 +224,39 @@ enum Finder {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 }
+
+/// "You copied a download link" prompt, shown in the window and the menu bar panel.
+struct ClipboardOfferBanner: View {
+    let url: URL
+    var compact = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.on.clipboard")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 32, height: 32)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.canvas))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.border))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Link download tersalin")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(LinkOffer.displayName(for: url))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 8)
+            Button { LinkOffer.dismiss() } label: { Image(systemName: "xmark") }
+                .buttonStyle(IconButtonStyle(iconSize: 11))
+                .help("Abaikan")
+            Button("Download") { LinkOffer.accept(url) }
+                .buttonStyle(PrimaryButtonStyle())
+        }
+        .padding(compact ? 10 : 14)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.card))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.border))
+    }
+}

@@ -52,6 +52,9 @@ struct DownloadsPage: View {
             Hairline()
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
+                    if let offer = ui.clipboardOffer {
+                        ClipboardOfferBanner(url: offer)
+                    }
                     if !folders.isEmpty && search.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             SectionTitle(title: "Kategori", detail: nil)

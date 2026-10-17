@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import DownloadCore
 import Foundation
 import Network
 
@@ -16,6 +17,10 @@ final class LocalServer: ObservableObject {
     @MainActor weak var dispatcher: DownloadDispatching?
 
     @Published private(set) var isRunning = false
+    /// True only while the browser extension keeps sending its heartbeat (every 30 s).
+    @Published private(set) var extensionConnected = false
+    @Published private(set) var extensionBrowser: String?
+    private var staleWork: DispatchWorkItem?
     private var listener: NWListener?
     private let queue = DispatchQueue(label: "macdl.server")
 
@@ -74,7 +79,11 @@ final class LocalServer: ObservableObject {
 
         switch (request.method, request.path) {
         case ("GET", "/ping"):
-            send(conn, status: "200 OK", json: ["ok": true, "app": "MacDownloader", "version": 1])
+            send(conn, status: "200 OK", json: ["ok": true, "app": "MacDownloader", "version": 2])
+        case ("POST", "/hello"):
+            let obj = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any]
+            markExtensionSeen(browser: obj?["browser"] as? String)
+            send(conn, status: "200 OK", json: ["ok": true, "app": "MacDownloader", "version": 2])
         case ("POST", "/add"):
             guard let obj = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any],
                   let url = obj["url"] as? String else {
@@ -91,12 +100,40 @@ final class LocalServer: ObservableObject {
                 send(conn, status: "400 Bad Request", json: ["ok": false, "error": "url tidak valid"])
                 return
             }
-            Task { @MainActor [weak self] in
-                self?.dispatcher?.enqueue(download)
+            guard obj["handoff"] as? Bool == true else {
+                // Legacy extension: accept without checking.
+                Task { @MainActor [weak self] in self?.dispatcher?.enqueue(download) }
+                send(conn, status: "200 OK", json: ["ok": true])
+                return
             }
-            send(conn, status: "200 OK", json: ["ok": true])
+            // Hand-off: the browser has paused its own download and waits for our answer.
+            // Accept only if we can actually fetch a file; otherwise the browser resumes it.
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    _ = try await DownloadResolver.resolve(RemoteRequest(url: download.url, headers: download.headers),
+                                                           timeout: 12, maxAttempts: 2)
+                    await MainActor.run { _ = self.dispatcher?.enqueue(download) }
+                    self.send(conn, status: "200 OK", json: ["ok": true, "accepted": true])
+                } catch {
+                    self.send(conn, status: "200 OK",
+                              json: ["ok": true, "accepted": false, "reason": error.localizedDescription])
+                }
+            }
         default:
             send(conn, status: "404 Not Found", json: ["ok": false])
+        }
+    }
+
+    private func markExtensionSeen(browser: String?) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let browser, !browser.isEmpty { self.extensionBrowser = browser }
+            if !self.extensionConnected { self.extensionConnected = true }
+            self.staleWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.extensionConnected = false }
+            self.staleWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 90, execute: work)
         }
     }
 

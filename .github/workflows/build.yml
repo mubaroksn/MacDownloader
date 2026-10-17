@@ -91,6 +91,21 @@ jobs:
           cmp -s "$OUT" reference.dat || fail "downloaded file differs from reference ($(stat -f%z "$OUT") vs $(stat -f%z reference.dat) bytes)"
           note "downloaded 10 MB via app into Downloads/Lainnya, byte-identical to curl copy (took ~${i}s)"
 
+          # Browser hand-off: the app must refuse links it cannot fetch (so the browser keeps them)…
+          r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
+            -d '{"url":"https://github.com/mubaroksn/MacDownloader/raw/main/does-not-exist.bin","handoff":true}' http://127.0.0.1:9614/add)
+          echo "$r" | grep -q '"accepted":false' || fail "hand-off of a 404 link should be refused, got: $r"
+          # …and accept share links it can resolve (GitHub blob page -> raw file).
+          r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
+            -d '{"url":"https://github.com/mubaroksn/MacDownloader/blob/main/Package.swift","handoff":true}' http://127.0.0.1:9614/add)
+          echo "$r" | grep -q '"accepted":true' || fail "hand-off of a GitHub blob link should be accepted, got: $r"
+          OUT2="$HOME/Downloads/Lainnya/Package.swift"
+          for i in $(seq 1 60); do [ -f "$OUT2" ] && break; sleep 1; done
+          [ -f "$OUT2" ] && head -n 1 "$OUT2" | grep -q "swift-tools-version" || fail "GitHub blob link did not resolve to the raw file"
+          note "hand-off: refused a 404 link, resolved a GitHub blob link to the raw file"
+          r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" -d '{"browser":"CI"}' http://127.0.0.1:9614/hello)
+          echo "$r" | grep -q '"ok":true' || fail "/hello heartbeat failed: $r"
+
           pgrep -x MacDownloader >/dev/null || fail "app crashed during download"
           pkill -x MacDownloader || true
 
@@ -109,6 +124,9 @@ jobs:
           add "$F/100Mb.dat" "Laporan-Keuangan-Q3.pdf"
           add "$F/1Mb.dat" "Foto-Prewedding.jpg"
           add "$F/1Mb.dat" "Podcast-Episode-12.mp3"
+          osascript -e 'tell application "Finder" to activate' >/dev/null 2>&1 || true
+          sleep 1
+          printf '%s' "https://github.com/mubaroksn/MacDownloader/releases/download/v1.1.0/MacDownloader-1.1.0.dmg" | pbcopy
           add "$F/does-not-exist.zip" "Arsip-Proyek.zip"
           sleep 10
           add "$F/10Gb.dat" "Film-Liburan-Bali-4K.mp4"

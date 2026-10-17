@@ -87,6 +87,9 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     var tempPath: String?
     /// ETag / Last-Modified captured by the probe; guards resume against a changed remote file.
     var validator: String?
+    /// The link as the user/browser gave it. `url` becomes the resolved (often expiring) CDN URL;
+    /// every (re)start resolves again from this one.
+    var sourceURL: URL?
 
     // Runtime-only values, not persisted.
     var speed: Double = 0
@@ -95,7 +98,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, url, fileName, category, status, totalBytes, downloadedBytes,
              supportsRanges, segments, destinationPath, errorMessage, addedAt,
-             completedAt, headers, nameLocked, tempPath, validator
+             completedAt, headers, nameLocked, tempPath, validator, sourceURL
     }
 
     init(url: URL, fileName: String, category: FileCategory) {
@@ -123,6 +126,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         nameLocked = try c.decodeIfPresent(Bool.self, forKey: .nameLocked) ?? false
         tempPath = try c.decodeIfPresent(String.self, forKey: .tempPath)
         validator = try c.decodeIfPresent(String.self, forKey: .validator)
+        sourceURL = try c.decodeIfPresent(URL.self, forKey: .sourceURL)
     }
 
     var progress: Double {

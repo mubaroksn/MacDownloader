@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.notify) private var notify = true
     @AppStorage(SettingsKey.preventSleep) private var preventSleep = true
     @AppStorage(SettingsKey.showMenuBar) private var showMenuBar = true
+    @AppStorage(SettingsKey.monitorClipboard) private var monitorClipboard = true
     @State private var installedPath: String?
 
     var body: some View {
@@ -40,6 +41,8 @@ struct SettingsView: View {
             Toggle("Cegah Mac tidur saat mengunduh (layar tetap boleh mati)", isOn: $preventSleep)
                 .onChange(of: preventSleep) { _ in manager.refreshSystemActivity() }
             Toggle("Tampilkan ikon di menu bar", isOn: $showMenuBar)
+            Toggle("Tawarkan download saat link file disalin (semua browser)", isOn: $monitorClipboard)
+                .onChange(of: monitorClipboard) { ClipboardMonitor.shared.setEnabled($0) }
             Text("Perubahan jumlah koneksi berlaku untuk download berikutnya.")
                 .font(.caption).foregroundStyle(.secondary)
         }

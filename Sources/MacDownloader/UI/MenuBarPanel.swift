@@ -47,6 +47,12 @@ struct MenuBarPanel: View {
 
             Hairline()
 
+            if let offer = ui.clipboardOffer {
+                ClipboardOfferBanner(url: offer, compact: true)
+                    .padding(10)
+                Hairline()
+            }
+
             if visible.isEmpty {
                 Text("Belum ada download")
                     .font(.system(size: 12.5))

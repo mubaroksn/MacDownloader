@@ -14,6 +14,10 @@ final class LocalRangeServer: @unchecked Sendable {
         var bytesPerSecond: Int? = nil
         var etag: String? = "\"v1\""
         var contentDisposition: String? = nil
+        /// Answer any request carrying a Range header with 403 (some WAFs do this).
+        var rejectRanges = false
+        /// path → HTML page served as text/html (interstitials, login walls).
+        var pages: [String: String] = [:]
     }
 
     struct Stats {
@@ -33,6 +37,8 @@ final class LocalRangeServer: @unchecked Sendable {
     private var stats = Stats()
 
     var url: URL { URL(string: "http://127.0.0.1:\(port)/files/sample.bin")! }
+    var base: URL { URL(string: "http://127.0.0.1:\(port)")! }
+    func setPage(_ path: String, _ html: String) { lock.sync { options.pages[path] = html } }
 
     init(size: Int, options: Options = Options()) throws {
         var bytes = [UInt8](repeating: 0, count: size)
@@ -85,6 +91,8 @@ final class LocalRangeServer: @unchecked Sendable {
     }
 
     private func respond(_ connection: NWConnection, head: String) {
+        let requestLine = head.components(separatedBy: "\r\n").first ?? ""
+        let path = requestLine.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
         var headers: [String: String] = [:]
         for line in head.components(separatedBy: "\r\n").dropFirst() {
             guard let colon = line.firstIndex(of: ":") else { continue }
@@ -109,10 +117,31 @@ final class LocalRangeServer: @unchecked Sendable {
             return
         }
 
+        let pagePath = path.components(separatedBy: "?").first ?? path
+        if let html = opts.pages[pagePath] {
+            let body = Data(html.utf8)
+            sendHead(connection, status: "200 OK",
+                     headers: ["Content-Type": "text/html; charset=utf-8", "Content-Length": "\(body.count)"]) { [weak self] in
+                connection.send(content: body, contentContext: .finalMessage, isComplete: true,
+                                completion: .contentProcessed { _ in
+                    self?.lock.sync { self?.stats.active -= 1 }
+                    connection.cancel()
+                })
+            }
+            return
+        }
+        if opts.rejectRanges, headers["range"] != nil {
+            sendHead(connection, status: "403 Forbidden", headers: ["Content-Length": "0"]) { [weak self] in
+                self?.lock.sync { self?.stats.active -= 1 }
+                connection.cancel()
+            }
+            return
+        }
+
         let total = content.count
         var status = "200 OK"
         var range = 0..<total
-        var responseHeaders: [String: String] = [:]
+        var responseHeaders: [String: String] = ["Content-Type": "application/octet-stream"]
         if let etag = opts.etag { responseHeaders["ETag"] = etag }
         if let disposition = opts.contentDisposition { responseHeaders["Content-Disposition"] = disposition }
 

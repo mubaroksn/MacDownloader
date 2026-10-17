@@ -14,6 +14,8 @@ public enum DownloadEngineError: Error, Equatable, Sendable {
     case prematureEnd
     case insufficientSpace(needed: Int64, available: Int64)
     case io(operation: String, code: Int32)
+    /// The link leads to a web page (login wall, preview page), not to a file.
+    case notAFile
 
     /// Errors worth retrying on the same segment after a backoff.
     public var isTransient: Bool {
@@ -22,7 +24,7 @@ public enum DownloadEngineError: Error, Equatable, Sendable {
             return true
         case .httpStatus(let code):
             return code == 408 || code >= 500
-        case .remoteChanged, .rangeNotHonored, .insufficientSpace, .io:
+        case .remoteChanged, .rangeNotHonored, .insufficientSpace, .io, .notAFile:
             return false
         }
     }
@@ -43,6 +45,7 @@ extension DownloadEngineError: LocalizedError {
                 ? "Ruang disk tidak cukup (butuh \(f.string(fromByteCount: needed)), tersedia \(f.string(fromByteCount: available)))"
                 : "Ruang disk tidak cukup"
         case .io(let op, let code): return "Gagal menulis file (\(op): \(String(cString: strerror(code))))"
+        case .notAFile: return "Link ini membuka halaman web, bukan file. Mungkin perlu login: unduh lewat browser dengan ekstensi aktif"
         }
     }
 }
