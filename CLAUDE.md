@@ -4,7 +4,7 @@ Status per 17 Okt 2026. Pemilik: mubaroksn (berkomunikasi dalam bahasa Indonesia
 
 ## Apa ini
 Download manager ala IDM untuk macOS. Native Swift/SwiftUI, SwiftPM (tanpa .xcodeproj), macOS 13+, universal.
-Repo: https://github.com/mubaroksn/MacDownloader · Rilis terbaru: **v1.3.0**.
+Repo: https://github.com/mubaroksn/MacDownloader · Rilis terbaru: **v1.4.0** (ekstensi Firefox).
 Detail arsitektur: `ARCHITECTURE.md`. Ringkasan pengguna: `README.md`.
 
 ## Yang sudah ada
@@ -14,7 +14,10 @@ Detail arsitektur: `ARCHITECTURE.md`. Ringkasan pengguna: `README.md`.
   `LinkResolver` (Drive/Docs/Dropbox/GitHub/SharePoint/Pixeldrain + halaman virus-scan Drive, MediaFire),
   `DriveFolder` (folder Drive publik via `window['_DRIVE_ivd']`, diverifikasi Okt 2026; `embeddedfolderview` sudah mati).
 - `Sources/MacDownloader`: UI monokrom (rail, sidebar tree, kartu folder, tabel), menu bar, IOKit sleep assertion,
-  clipboard monitor, ekstensi Chromium (pause → hand-off → resume kalau app menolak; heartbeat 30 dtk).
+  clipboard monitor, ekstensi browser (pause → hand-off → resume kalau app menolak; heartbeat 30 dtk).
+- Ekstensi: satu sumber `ChromeExtension/` untuk Chromium + Firefox; `scripts/build_extensions.sh` menurunkan manifest
+  Firefox (event page, gecko id `macdownloader@mubaroksn.github.io`). CI menjalankan `web-ext lint` dan, saat rilis,
+  `web-ext sign` (unlisted) **jika** secret `AMO_JWT_ISSUER`/`AMO_JWT_SECRET` ada → `.xpi` di Release.
 - `Sources/mdl-bench`: CLI benchmark throughput/CPU. `Tests/DownloadCoreTests`: 39 tes (server range lokal).
 
 ## Cara kerja dari sesi Claude (penting)
@@ -33,8 +36,9 @@ Detail arsitektur: `ARCHITECTURE.md`. Ringkasan pengguna: `README.md`.
   Benchmark: engine sanggup 570–920 Mbps ke Google Drive di datacenter → batasnya server/jaringan, bukan engine.
 
 ## Terbuka / langkah berikutnya
-1. Tunggu hasil tes pengguna di v1.3.0: apakah baris ZIP Drive menampilkan "1 koneksi · server tidak mendukung
-   multi-koneksi", dan berapa speed saat menempel **link folder** (unduhan paralel per file).
+1. Speed **link folder** Drive di Starlink: awal ~12 MB/s lalu turun ke 4-5 MB/s. Dugaan: 3 file paralel di awal,
+   akhirnya tinggal 1 file besar. Menunggu link folder / screenshot (koneksi per baris, ukuran file) dari pengguna.
+1b. v1.4.0 dirilis tanpa `.xpi` bertanda tangan — pengguna belum memasang secret AMO. Setelah dipasang, rilis ulang.
 2. Nama app: pengguna ingin tetap ada kata "warp", condong ke **"wwwarp"** — belum diputuskan/diterapkan.
 3. Kandidat fitur: Native Messaging host (Chromium), Safari Web Extension (butuh migrasi ke Xcode project),
    video grabber (yt-dlp) — belum diminta.
