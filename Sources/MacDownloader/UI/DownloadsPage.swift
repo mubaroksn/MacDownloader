@@ -52,6 +52,9 @@ struct DownloadsPage: View {
             Hairline()
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
+                    if search.isEmpty {
+                        DashboardStrip()
+                    }
                     if let offer = ui.clipboardOffer {
                         ClipboardOfferBanner(url: offer)
                     }

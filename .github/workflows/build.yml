@@ -215,6 +215,15 @@ jobs:
           "$APP" -appearance light -startPage browser -snapshotPath "$SHOTS/browser.png" -snapshotDelay 6 > app-browser.log 2>&1 &
           sleep 10
           pkill -x MacDownloader || true
+          for section in downloads general about; do
+            "$APP" -appearance light -startPage settings -settingsSection $section -snapshotPath "$SHOTS/settings-$section.png" -snapshotDelay 6 > app-settings.log 2>&1 &
+            sleep 9
+            pkill -x MacDownloader || true
+            sleep 1
+          done
+          "$APP" -appearance dark -startPage settings -settingsSection downloads -snapshotPath "$SHOTS/settings-dark.png" -snapshotDelay 6 > app-settings.log 2>&1 &
+          sleep 9
+          pkill -x MacDownloader || true
 
           ls -la "$SHOTS"
           cat app-light.log app-dark.log | tail -n 20

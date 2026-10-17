@@ -70,6 +70,17 @@ struct MenuBarPanel: View {
 
             Hairline()
 
+            HStack(spacing: 10) {
+                Text("Kecepatan")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+                SpeedModePicker(compact: true)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Hairline()
+
             HStack(spacing: 8) {
                 if manager.items.contains(where: { [.downloading, .queued].contains($0.status) }) {
                     Button { manager.pauseAll() } label: { Label("Jeda semua", systemImage: "pause.fill") }
@@ -103,12 +114,7 @@ struct MenuBarPanel: View {
     }
 
     private func showMainWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue.hasPrefix(MacDownloaderApp.mainWindowID) == true }) {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            openWindow(id: MacDownloaderApp.mainWindowID)
-        }
+        MainWindow.show { openWindow(id: MacDownloaderApp.mainWindowID) }
     }
 }
 

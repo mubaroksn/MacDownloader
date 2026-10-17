@@ -13,7 +13,10 @@ Download manager untuk macOS ala IDM: native SwiftUI, universal (Apple Silicon +
 - **Pause/resume yang aman.** Progres tersimpan dan bisa dilanjutkan setelah restart. File di server divalidasi dengan `If-Range` (ETag/Last-Modified): kalau file di server berubah, download diulang, bukan disambung.
 - **Tahan server yang membatasi.** Saat server menolak (429/503) atau koneksi gagal, jumlah koneksi dikurangi, lalu dinaikkan lagi bertahap saat server pulih.
 - **Hemat baterai.** Mac dicegah tidur hanya selama ada download aktif (layar tetap boleh mati), dan pembaruan tampilan hanya berjalan saat ada transfer.
-- **Ikon menu bar** untuk melihat progres, menjeda, atau melanjutkan download dengan cepat.
+- **Ringkasan di atas daftar download:** kecepatan total dengan grafik semenit terakhir, jumlah download aktif dan antre, serta total yang terunduh hari ini.
+- **Mode kecepatan** Penuh, Hemat, dan Senyap untuk semua download sekaligus, supaya video call atau streaming tetap lancar. Batas Hemat dan Senyap bisa diatur di Pengaturan › Download. Batasnya berlaku di jaringan (server ikut melambat), bukan sekadar menunda penulisan ke disk.
+- **Ikon menu bar** untuk melihat progres, mengganti mode kecepatan, menjeda, atau melanjutkan download dengan cepat.
+- **Pengaturan** di dalam jendela utama (⌘,): Umum (folder, buka saat login, cegah tidur), Download (koneksi, antrean, batas kecepatan), Integrasi, Tampilan (terang/gelap/ikut sistem), dan Tentang (cek update dari GitHub).
 - **Antrian & kategori.** Ada batas download bersamaan, dan file otomatis masuk ke subfolder Video, Musik, Dokumen, Program, Arsip, Gambar, atau Lainnya.
 - **Integrasi browser** untuk Chrome, Edge, Brave, dan Arc: download diambil alih otomatis dan tersedia menu klik kanan. Cookie dan referrer ikut dikirim.
 

@@ -63,6 +63,15 @@ Chromium extension → LocalServer ───┼─► DownloadRequest ─► Dow
 | Shed a connection on 429/503/connect failure, add one back per quiet interval | AIMD-style: settles at what the server tolerates instead of failing or hammering. |
 | Progress is polled, not pushed | Workers update a lock-protected counter; the UI samples at 2 Hz only while something is transferring. No per-chunk main-thread hops. |
 
+## Speed limit
+
+`BandwidthLimiter` (DownloadCore) is one GCRA token scheduler shared by every connection of every
+download. A worker calls `acquire(bytes)` after writing a chunk but *before* acknowledging it to
+`HTTPByteStream`; while it waits, the stream buffer fills, the URLSession task is suspended and the
+TCP window closes, so the cap holds on the wire. Changing the cap bumps a generation counter that
+releases current waiters within 0.25 s. The app maps three modes (Penuh/Hemat/Senyap) to caps
+stored in UserDefaults.
+
 ## Power
 
 `SystemActivity` holds a `PreventUserIdleSystemSleep` IOKit assertion (display may still sleep)
