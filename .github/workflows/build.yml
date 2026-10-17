@@ -103,6 +103,18 @@ jobs:
           for i in $(seq 1 60); do [ -f "$OUT2" ] && break; sleep 1; done
           [ -f "$OUT2" ] && head -n 1 "$OUT2" | grep -q "swift-tools-version" || fail "GitHub blob link did not resolve to the raw file"
           note "hand-off: refused a 404 link, resolved a GitHub blob link to the raw file"
+          # Public Google Drive folder link -> every file, folder structure kept.
+          curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
+            -d '{"url":"https://drive.google.com/drive/folders/1Gz05BcrlN_Trf4F_Zf-F6YrG3sQa5O7V?usp=sharing"}' http://127.0.0.1:9614/add >/dev/null
+          for i in $(seq 1 150); do
+            n=$(find "$HOME/Downloads" -mindepth 2 -maxdepth 2 -path "*Alta Vista*" -type f ! -name "*.mdownload" 2>/dev/null | wc -l | tr -d ' ')
+            [ "$n" -ge 10 ] && break; sleep 1
+          done
+          if [ "${n:-0}" -ge 10 ]; then
+            note "Google Drive folder: $n files downloaded into $(find "$HOME/Downloads" -maxdepth 1 -name '*Alta Vista*' | head -1)"
+          else
+            echo "::warning title=Drive folder::only ${n:-0} files after 150s (Google may rate-limit CI runners); state: $(python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/Library/Application Support/MacDownloader/downloads.json'))); print([ (i['fileName'], i['status'], i.get('errorMessage')) for i in d][:6])")"
+          fi
           r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" -d '{"browser":"CI"}' http://127.0.0.1:9614/hello)
           echo "$r" | grep -q '"ok":true' || fail "/hello heartbeat failed: $r"
 

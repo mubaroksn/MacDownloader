@@ -106,6 +106,11 @@ final class LocalServer: ObservableObject {
                 send(conn, status: "200 OK", json: ["ok": true])
                 return
             }
+            if DriveFolder.folderID(from: download.url) != nil {
+                Task { @MainActor [weak self] in _ = self?.dispatcher?.enqueue(download) }
+                send(conn, status: "200 OK", json: ["ok": true, "accepted": true])
+                return
+            }
             // Hand-off: the browser has paused its own download and waits for our answer.
             // Accept only if we can actually fetch a file; otherwise the browser resumes it.
             Task { [weak self] in

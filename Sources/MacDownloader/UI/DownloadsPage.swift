@@ -55,6 +55,19 @@ struct DownloadsPage: View {
                     if let offer = ui.clipboardOffer {
                         ClipboardOfferBanner(url: offer)
                     }
+                    if let notice = ui.notice {
+                        HStack(spacing: 10) {
+                            Image(systemName: "info.circle").foregroundStyle(Theme.textSecondary)
+                            Text(notice).font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
+                            Spacer(minLength: 8)
+                            Button { ui.flash(nil) } label: { Image(systemName: "xmark") }
+                                .buttonStyle(IconButtonStyle(iconSize: 11))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.card))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.border))
+                    }
                     if !folders.isEmpty && search.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             SectionTitle(title: "Kategori", detail: nil)

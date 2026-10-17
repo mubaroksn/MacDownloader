@@ -55,6 +55,20 @@ final class UIState: ObservableObject {
     @Published var showAddSheet = false
     /// A download link the user just copied elsewhere (clipboard monitor).
     @Published var clipboardOffer: URL?
+    /// Short status line shown at the top of the downloads page.
+    @Published private(set) var notice: String?
+    private var noticeToken = 0
+
+    func flash(_ text: String?, autoHide: Bool = true) {
+        noticeToken += 1
+        notice = text
+        guard autoHide, text != nil else { return }
+        let token = noticeToken
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            if self?.noticeToken == token { self?.notice = nil }
+        }
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

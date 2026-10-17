@@ -16,6 +16,8 @@ public enum DownloadEngineError: Error, Equatable, Sendable {
     case io(operation: String, code: Int32)
     /// The link leads to a web page (login wall, preview page), not to a file.
     case notAFile
+    /// A Google Drive folder that isn't shared as "anyone with the link".
+    case folderNotAccessible
 
     /// Errors worth retrying on the same segment after a backoff.
     public var isTransient: Bool {
@@ -24,7 +26,7 @@ public enum DownloadEngineError: Error, Equatable, Sendable {
             return true
         case .httpStatus(let code):
             return code == 408 || code >= 500
-        case .remoteChanged, .rangeNotHonored, .insufficientSpace, .io, .notAFile:
+        case .remoteChanged, .rangeNotHonored, .insufficientSpace, .io, .notAFile, .folderNotAccessible:
             return false
         }
     }
@@ -45,6 +47,8 @@ extension DownloadEngineError: LocalizedError {
                 ? "Ruang disk tidak cukup (butuh \(f.string(fromByteCount: needed)), tersedia \(f.string(fromByteCount: available)))"
                 : "Ruang disk tidak cukup"
         case .io(let op, let code): return "Gagal menulis file (\(op): \(String(cString: strerror(code))))"
+        case .folderNotAccessible:
+            return "Folder Google Drive ini tidak publik. Ubah aksesnya ke \"Siapa saja yang memiliki link\", atau unduh lewat browser"
         case .notAFile: return "Link ini membuka halaman web, bukan file. Mungkin perlu login: unduh lewat browser dengan ekstensi aktif"
         }
     }

@@ -75,12 +75,17 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
 
     @discardableResult
     func enqueue(_ request: DownloadRequest) -> UUID? {
+        if let folderID = DriveFolder.folderID(from: request.url) {
+            expandDriveFolder(folderID, request: request)
+            return nil
+        }
         let urlName = request.url.lastPathComponent
         let name = sanitize(request.suggestedFilename ?? (urlName == "/" ? "" : urlName))
         var item = DownloadItem(url: request.url, fileName: name.isEmpty ? "download" : name,
                                 category: FileCategory.from(fileName: name))
         item.headers = request.headers
         item.sourceURL = request.url
+        item.subdirectory = request.subdirectory
         item.nameLocked = request.suggestedFilename != nil
         item.status = request.startImmediately ? .queued : .paused
         items.insert(item, at: 0)
@@ -97,11 +102,62 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         enqueue(request)
     }
 
+    // MARK: Google Drive folders
+
+    /// Lists a public Drive folder and queues every file, keeping the folder structure under
+    /// Downloads/<folder name>/. Failures show up as one failed row with the reason.
+    private func expandDriveFolder(_ folderID: String, request: DownloadRequest) {
+        UIState.shared.flash("Membaca isi folder Google Drive…", autoHide: false)
+        Task {
+            do {
+                let contents = try await DriveFolder.contents(of: folderID, headers: request.headers)
+                let root = sanitize(contents.title).isEmpty ? "Google Drive" : sanitize(contents.title)
+                guard !contents.files.isEmpty else {
+                    UIState.shared.flash("Folder \"\(root)\" kosong atau hanya berisi file Google yang tidak bisa diunduh")
+                    return
+                }
+                for file in contents.files {
+                    guard var fileRequest = DownloadRequest(urlString: file.url.absoluteString,
+                                                            suggestedFilename: file.name,
+                                                            referrer: request.referrer,
+                                                            cookie: request.cookie,
+                                                            userAgent: request.userAgent,
+                                                            origin: request.origin,
+                                                            startImmediately: request.startImmediately) else { continue }
+                    fileRequest.subdirectory = file.relativeDirectory.isEmpty ? root : root + "/" + file.relativeDirectory
+                    if let id = enqueue(fileRequest), let i = index(id), let size = file.size, size > 0 {
+                        items[i].totalBytes = size
+                    }
+                }
+                var message = "\(contents.files.count) file dari folder \"\(root)\" ditambahkan"
+                if contents.truncated { message += ". Google hanya menampilkan sebagian isi folder besar; sisanya unduh per subfolder" }
+                UIState.shared.flash(message)
+            } catch {
+                UIState.shared.flash(nil)
+                var item = DownloadItem(url: request.url, fileName: "Folder Google Drive", category: .other)
+                item.sourceURL = request.url
+                item.headers = request.headers
+                item.status = .failed
+                item.errorMessage = error.localizedDescription
+                items.insert(item, at: 0)
+                save()
+            }
+        }
+    }
+
     // MARK: Queue actions
 
     func resume(_ ids: Set<UUID>) {
         for id in ids {
             guard let i = index(id), [.paused, .failed].contains(items[i].status) else { continue }
+            // A Drive folder that failed to list: try listing it again instead of downloading the page.
+            if let source = items[i].sourceURL, let folderID = DriveFolder.folderID(from: source) {
+                let item = items.remove(at: i)
+                var request = DownloadRequest(urlString: source.absoluteString, origin: .manual)
+                request?.cookie = item.headers["Cookie"]
+                if let request { expandDriveFolder(folderID, request: request) }
+                continue
+            }
             items[i].status = .queued
             items[i].errorMessage = nil
         }
@@ -245,7 +301,13 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             items[i].category = FileCategory.from(fileName: items[i].fileName)
         }
         var folder = downloadFolder
-        if useCategoryFolders { folder.appendPathComponent(items[i].category.label, isDirectory: true) }
+        if let sub = items[i].subdirectory, !sub.isEmpty {
+            for component in sub.split(separator: "/") where component != ".." && component != "." {
+                folder.appendPathComponent(String(component), isDirectory: true)
+            }
+        } else if useCategoryFolders {
+            folder.appendPathComponent(items[i].category.label, isDirectory: true)
+        }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let destination = uniqueURL(in: folder, name: items[i].fileName)
         items[i].fileName = destination.lastPathComponent

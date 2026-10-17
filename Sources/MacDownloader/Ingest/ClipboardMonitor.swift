@@ -13,6 +13,7 @@ enum DownloadableLink {
               let host = url.host?.lowercased(), !host.isEmpty else { return nil }
 
         if LinkResolver.directURL(for: url) != nil { return url }               // Drive, Dropbox, GitHub, …
+        if DriveFolder.folderID(from: url) != nil { return url }               // whole Drive folders
         if host.hasSuffix("mediafire.com"), url.path.hasPrefix("/file") { return url }
         let ext = url.pathExtension.lowercased()
         if !ext.isEmpty, FileCategory.from(fileName: "x.\(ext)") != .other { return url }
@@ -112,6 +113,7 @@ enum LinkOffer {
     static func dismiss() { UIState.shared.clipboardOffer = nil }
 
     static func displayName(for url: URL) -> String {
+        if DriveFolder.folderID(from: url) != nil { return "Folder Google Drive · semua isinya" }
         let name = url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
         let host = url.host ?? ""
         return name.isEmpty || name == "/" || !name.contains(".") ? host + url.path : "\(name) · \(host)"
