@@ -32,11 +32,9 @@ App berkomunikasi dengan ekstensi melalui `127.0.0.1:9614` dan hanya bisa diakse
 
 ## Membuat rilis
 
-Push tag versi, maka GitHub Actions akan membuat Release berisi DMG dan zip ekstensi:
+Buka tab **Actions → Build macOS app → Run workflow**, isi kolom versi (misalnya `1.0.1`), lalu jalankan. Atau push tag `v1.0.1`. GitHub Actions akan membuat Release berisi DMG dan zip ekstensi.
 
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
+Setiap build juga menjalankan smoke test di Mac: aplikasi dibuka, lalu dites mengunduh file 10 MB lewat jalur ekstensi browser, dan hasilnya dicocokkan byte per byte.
 
 Build lokal di Mac (butuh Xcode Command Line Tools):
 
