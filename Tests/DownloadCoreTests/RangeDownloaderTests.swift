@@ -149,6 +149,20 @@ final class RangeDownloaderTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(server.snapshot().peakActive, 6, "should have scaled well beyond the initial 2")
     }
 
+    func testRetiresConnectionsThatDoNotAddSpeed() async throws {
+        let server = try LocalRangeServer(size: 64 << 20)  // loopback: no per-connection cap
+        let resource = try await ResourceProber.probe(RemoteRequest(url: server.url))
+        let scheduler = SegmentScheduler(segments: SegmentPlanner.plan(totalBytes: resource.totalBytes, acceptsRanges: true,
+                                                                       connections: 4),
+                                         workers: 4, minSplitSize: 1 << 20)
+        scheduler.requestRetire(2)
+        XCTAssertTrue(scheduler.consumeRetire())
+        XCTAssertTrue(scheduler.consumeRetire())
+        XCTAssertFalse(scheduler.consumeRetire(), "only the requested number retire")
+        XCTAssertEqual(scheduler.activeWorkers, 2)
+        _ = server
+    }
+
     func testAutoScalingCanBeDisabled() async throws {
         var options = LocalRangeServer.Options()
         options.bytesPerSecond = 2 << 20

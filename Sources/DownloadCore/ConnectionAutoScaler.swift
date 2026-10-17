@@ -7,7 +7,10 @@ import Foundation
 /// by RTT and loss (~30-40 Mbit/s), so 200 Mbit/s needs 6+ flows. Instead of guessing, measure:
 ///
 ///   warm-up window (slow start, ignored) → baseline → add ~50 % more connections →
-///   settle one window → measure → keep growing while throughput improves ≥ 10 %, else stop.
+///   settle one window → measure → keep growing while throughput improves ≥ 10 %; otherwise
+///   give the last step back (extra connections that don't add speed only cost CPU/battery).
+///
+/// `evaluate` returns a connection delta: positive = add, negative = retire.
 ///
 /// The scaler only proposes; the supervisor applies it when the scheduler has work to give and
 /// the server hasn't pushed back recently (429/503 handling has priority).
@@ -15,8 +18,8 @@ struct ConnectionAutoScaler {
     enum Phase: Equatable {
         case warmingUp
         case measuring
-        case settling(baseline: Double)
-        case probing(baseline: Double)
+        case settling(baseline: Double, step: Int)
+        case probing(baseline: Double, step: Int)
         case done
     }
 
@@ -42,13 +45,15 @@ struct ConnectionAutoScaler {
             return 0
         case .measuring:
             return grow(baseline: throughput, canAdd: canAdd)
-        case .settling(let baseline):
-            phase = .probing(baseline: baseline)
+        case .settling(let baseline, let step):
+            phase = .probing(baseline: baseline, step: step)
             return 0
-        case .probing(let baseline):
+        case .probing(let baseline, let step):
             guard throughput >= baseline * (1 + minimumGain) else {
-                phase = .done // plateau: more connections stopped helping
-                return 0
+                // Plateau: the last step didn't pay off, so give it back.
+                phase = .done
+                target -= step
+                return -step
             }
             return grow(baseline: throughput, canAdd: canAdd)
         }
@@ -64,7 +69,7 @@ struct ConnectionAutoScaler {
         }
         let step = min(maxConnections - target, max(2, target / 2))
         target += step
-        phase = .settling(baseline: baseline)
+        phase = .settling(baseline: baseline, step: step)
         return step
     }
 }

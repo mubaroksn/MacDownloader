@@ -26,6 +26,7 @@ final class SegmentScheduler: @unchecked Sendable {
         var slots: [Slot]
         var activeWorkers: Int
         var lastYield: Date?
+        var retireRequests = 0
     }
 
     private let lock: OSAllocatedUnfairLock<State>
@@ -125,6 +126,22 @@ final class SegmentScheduler: @unchecked Sendable {
     }
 
     var activeWorkers: Int { lock.withLock { $0.activeWorkers } }
+
+    /// Asks `count` workers to leave at their next chunk boundary.
+    func requestRetire(_ count: Int) {
+        lock.withLock { $0.retireRequests += max(0, count) }
+    }
+
+    /// Called by a worker between chunks. True = this worker should stop now; it is then
+    /// no longer counted, and its segment must be released (another worker continues it).
+    func consumeRetire() -> Bool {
+        lock.withLock { s in
+            guard s.retireRequests > 0, s.activeWorkers > 1 else { return false }
+            s.retireRequests -= 1
+            s.activeWorkers -= 1
+            return true
+        }
+    }
 
     func registerWorker() { lock.withLock { $0.activeWorkers += 1 } }
 

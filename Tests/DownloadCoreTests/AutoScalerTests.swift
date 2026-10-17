@@ -9,9 +9,9 @@ final class AutoScalerTests: XCTestCase {
         XCTAssertEqual(s.evaluate(throughput: 31, canAdd: true), 0)   // settling
         XCTAssertEqual(s.evaluate(throughput: 42, canAdd: true), 6)   // +40 % → 18
         XCTAssertEqual(s.evaluate(throughput: 40, canAdd: true), 0)   // settling
-        XCTAssertEqual(s.evaluate(throughput: 43, canAdd: true), 0)   // +2 % → plateau
+        XCTAssertEqual(s.evaluate(throughput: 43, canAdd: true), -6)  // +2 % → plateau, give the step back
         XCTAssertEqual(s.phase, .done)
-        XCTAssertEqual(s.target, 18)
+        XCTAssertEqual(s.target, 12)
         XCTAssertEqual(s.evaluate(throughput: 99, canAdd: true), 0)   // stays done
     }
 
@@ -29,5 +29,15 @@ final class AutoScalerTests: XCTestCase {
         var blocked = ConnectionAutoScaler(initial: 8, maxConnections: 32)
         _ = blocked.evaluate(throughput: 1, canAdd: true)
         XCTAssertEqual(blocked.evaluate(throughput: 10, canAdd: false), 0, "no work to hand out → don't add")
+    }
+
+    func testSaturatedLinkReturnsToBaseline() {
+        // Link already full at 8 connections (e.g. 200 Mbit/s cap): extra ones are retired.
+        var s = ConnectionAutoScaler(initial: 8, maxConnections: 32)
+        _ = s.evaluate(throughput: 25, canAdd: true)
+        XCTAssertEqual(s.evaluate(throughput: 25, canAdd: true), 4)
+        _ = s.evaluate(throughput: 25, canAdd: true)
+        XCTAssertEqual(s.evaluate(throughput: 25.5, canAdd: true), -4)
+        XCTAssertEqual(s.target, 8)
     }
 }

@@ -119,7 +119,11 @@ public final class RangeDownloader: @unchecked Sendable {
                     let quiet = configuration.rampUpInterval * 2
                     if scheduler.recentlyYielded(within: quiet) { scaler.serverPushedBack() }
                     let canAdd = scheduler.activeWorkers >= scaler.target && scheduler.canScale(quietPeriod: quiet)
-                    for _ in 0..<scaler.evaluate(throughput: throughput, canAdd: canAdd) {
+                    let delta = scaler.evaluate(throughput: throughput, canAdd: canAdd)
+                    if delta < 0 {
+                        scheduler.requestRetire(-delta)
+                    }
+                    for _ in 0..<max(0, delta) {
                         scheduler.registerWorker()
                         group.addTask { try await self.workerLoop(sink: sink); return .worker }
                     }
@@ -144,6 +148,7 @@ public final class RangeDownloader: @unchecked Sendable {
     }
 
     private enum Child: Sendable { case worker, tick }
+    private struct RetireSignal: Error {}
 
     private func tick() async throws {
         let interval = configuration.autoScale ? min(configuration.scaleInterval, configuration.rampUpInterval)
@@ -163,6 +168,9 @@ public final class RangeDownloader: @unchecked Sendable {
                 try await transfer(claim, sink: sink)
                 scheduler.release(claim.id)
                 failures = 0
+            } catch is RetireSignal {
+                scheduler.release(claim.id) // another worker continues this segment
+                return
             } catch {
                 // Without range support a retry re-sends from byte 0, so local progress must restart too.
                 let restart = !resource.acceptsRanges
@@ -225,6 +233,7 @@ public final class RangeDownloader: @unchecked Sendable {
                 }
                 let complete = scheduler.commit(claim.id, length: length)
                 stream.consumed(data.count)
+                if !complete, length == data.count, scheduler.consumeRetire() { throw RetireSignal() }
                 // Done, or another worker stole the rest of this segment.
                 if complete || length < data.count { return }
             }
