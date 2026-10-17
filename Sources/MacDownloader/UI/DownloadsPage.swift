@@ -332,7 +332,7 @@ struct FileRow: View {
                     Text("Menghubungkan…")
                 } else if item.status == .downloading {
                     Text(Format.bytes(item.downloadedBytes)).foregroundStyle(Theme.textPrimary)
-                    if item.speed > 0 { Text("· \(Format.speed(item.speed))") }
+                    if item.speed >= 1 { Text("· \(Format.speed(item.speed))") }
                     if let eta = item.eta { Text("· \(Format.duration(eta))") }
                 } else if item.totalBytes > 0 {
                     Text("\(Int(value * 100))%").foregroundStyle(Theme.textPrimary)

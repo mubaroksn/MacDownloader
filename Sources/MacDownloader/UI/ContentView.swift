@@ -127,7 +127,7 @@ struct TopBar: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
-            if totalSpeed > 0 {
+            if totalSpeed >= 1 {
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold))
                     Text(Format.speed(totalSpeed)).monospacedDigit()

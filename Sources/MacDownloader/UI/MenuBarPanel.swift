@@ -162,7 +162,7 @@ private struct MenuBarRow: View {
         switch item.status {
         case .downloading:
             var parts = ["\(Int(item.progress * 100))%"]
-            if item.speed > 0 { parts.append(Format.speed(item.speed)) }
+            if item.speed >= 1 { parts.append(Format.speed(item.speed)) }
             if let eta = item.eta { parts.append(Format.duration(eta)) }
             return parts.joined(separator: " · ")
         case .queued: return "Antri"
