@@ -15,8 +15,13 @@ import Foundation
 /// connection count adapts down to what the server tolerates.
 public final class RangeDownloader: @unchecked Sendable {
     public struct Configuration: Sendable {
-        /// Parallel connections for range-capable servers.
+        /// Initial parallel connections for range-capable servers.
         public var connections = 8
+        /// Measure throughput and add connections while it keeps improving (up to `maxConnections`).
+        public var autoScale = true
+        public var maxConnections = 32
+        /// Measurement window for auto-scaling.
+        public var scaleInterval: TimeInterval = 3
         /// Never split below this size: per-request overhead would dominate.
         public var minSplitSize: Int64 = 1 << 20
         /// Consecutive failures the last remaining worker tolerates before the download fails
@@ -86,22 +91,46 @@ public final class RangeDownloader: @unchecked Sendable {
                 for _ in 0..<workerCount {
                     group.addTask { try await self.workerLoop(sink: sink); return .worker }
                 }
-                if resource.acceptsRanges && workerCount > 1 {
+                let supervise = resource.acceptsRanges && (workerCount > 1 || configuration.autoScale)
+                if supervise {
                     group.addTask { try await self.tick(); return .tick }
                 }
-                // Supervisor: ends when the last worker leaves; on each tick, maybe add a connection back.
+                // Supervisor: ends when the last worker leaves. On each tick it
+                // 1) auto-scales connections while throughput improves, and
+                // 2) adds back connections shed after 429/503 once the server has been quiet.
+                var scaler = ConnectionAutoScaler(initial: workerCount,
+                                                  maxConnections: configuration.autoScale ? configuration.maxConnections : workerCount)
+                var lastBytes = scheduler.progress.downloaded
+                var lastTick = Date()
+                var lastRecovery = Date()
                 while let child = try await group.next() {
                     if scheduler.activeWorkers == 0 {
                         group.cancelAll()
                         break
                     }
-                    if child == .tick {
-                        if scheduler.shouldRampUp(target: workerCount, quietPeriod: configuration.rampUpInterval * 2) {
-                            scheduler.registerWorker()
-                            group.addTask { try await self.workerLoop(sink: sink); return .worker }
-                        }
-                        group.addTask { try await self.tick(); return .tick }
+                    guard child == .tick else { continue }
+
+                    let now = Date()
+                    let bytes = scheduler.progress.downloaded
+                    let throughput = Double(bytes - lastBytes) / max(0.001, now.timeIntervalSince(lastTick))
+                    lastBytes = bytes
+                    lastTick = now
+
+                    let quiet = configuration.rampUpInterval * 2
+                    if scheduler.recentlyYielded(within: quiet) { scaler.serverPushedBack() }
+                    let canAdd = scheduler.activeWorkers >= scaler.target && scheduler.canScale(quietPeriod: quiet)
+                    for _ in 0..<scaler.evaluate(throughput: throughput, canAdd: canAdd) {
+                        scheduler.registerWorker()
+                        group.addTask { try await self.workerLoop(sink: sink); return .worker }
                     }
+
+                    if now.timeIntervalSince(lastRecovery) >= configuration.rampUpInterval,
+                       scheduler.shouldRampUp(target: scaler.target, quietPeriod: quiet) {
+                        lastRecovery = now
+                        scheduler.registerWorker()
+                        group.addTask { try await self.workerLoop(sink: sink); return .worker }
+                    }
+                    group.addTask { try await self.tick(); return .tick }
                 }
             }
         }
@@ -117,7 +146,9 @@ public final class RangeDownloader: @unchecked Sendable {
     private enum Child: Sendable { case worker, tick }
 
     private func tick() async throws {
-        try await Task.sleep(nanoseconds: UInt64(max(0.05, configuration.rampUpInterval) * 1_000_000_000))
+        let interval = configuration.autoScale ? min(configuration.scaleInterval, configuration.rampUpInterval)
+                                               : configuration.rampUpInterval
+        try await Task.sleep(nanoseconds: UInt64(max(0.05, interval) * 1_000_000_000))
     }
 
     // MARK: - Worker

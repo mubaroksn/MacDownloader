@@ -130,6 +130,39 @@ final class RangeDownloaderTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(stats.peakActive, 3, "connections should be added back after the 429s stop")
     }
 
+    /// Per-connection-capped link (like a single TCP flow over Starlink): auto-scaling must add connections.
+    func testAutoScalingAddsConnectionsWhenEachIsSlow() async throws {
+        var options = LocalRangeServer.Options()
+        options.bytesPerSecond = 1 << 20
+        let server = try LocalRangeServer(size: 40 << 20, options: options)
+        let resource = try await ResourceProber.probe(RemoteRequest(url: server.url))
+
+        var cfg = config(connections: 2)
+        cfg.maxConnections = 16
+        cfg.scaleInterval = 0.5
+        let file = tempFile()
+        let downloader = RangeDownloader(request: RemoteRequest(url: server.url), resource: resource,
+                                         fileURL: file, configuration: cfg)
+        try await downloader.run()
+
+        XCTAssertEqual(try Data(contentsOf: file), server.content)
+        XCTAssertGreaterThanOrEqual(server.snapshot().peakActive, 6, "should have scaled well beyond the initial 2")
+    }
+
+    func testAutoScalingCanBeDisabled() async throws {
+        var options = LocalRangeServer.Options()
+        options.bytesPerSecond = 2 << 20
+        let server = try LocalRangeServer(size: 8 << 20, options: options)
+        let resource = try await ResourceProber.probe(RemoteRequest(url: server.url))
+        var cfg = config(connections: 2)
+        cfg.autoScale = false
+        cfg.scaleInterval = 0.3
+        let downloader = RangeDownloader(request: RemoteRequest(url: server.url), resource: resource,
+                                         fileURL: tempFile(), configuration: cfg)
+        try await downloader.run()
+        XCTAssertLessThanOrEqual(server.snapshot().peakActive, 2)
+    }
+
     func testServerWithoutRangeSupportFallsBackToSingleStream() async throws {
         var options = LocalRangeServer.Options()
         options.supportsRanges = false

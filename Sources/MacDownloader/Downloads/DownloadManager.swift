@@ -13,6 +13,7 @@ enum SettingsKey {
     static let preventSleep = "preventSleepWhileDownloading"
     static let showMenuBar = "showMenuBarExtra"
     static let monitorClipboard = "monitorClipboard"
+    static let autoScale = "autoScaleConnections"
 }
 
 /// Owns the queue and its persistence; the UI's single source of truth.
@@ -259,6 +260,8 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
 
             var config = RangeDownloader.Configuration()
             config.connections = connectionsPerDownload
+            config.autoScale = defaults.object(forKey: SettingsKey.autoScale) as? Bool ?? true
+            config.maxConnections = 32
             let downloader = RangeDownloader(
                 request: RemoteRequest(url: resource.finalURL, headers: resolved.request.headers),
                 resource: resource,

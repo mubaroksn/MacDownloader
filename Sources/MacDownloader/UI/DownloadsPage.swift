@@ -326,8 +326,15 @@ struct FileRow: View {
                 Group {
                     if item.status == .failed, let error = item.errorMessage {
                         Text(error).foregroundStyle(Theme.red)
+                    } else if item.status == .downloading && !item.supportsRanges && !item.segments.isEmpty {
+                        // Server allows only one connection: the most common reason for "slow".
+                        Text("1 koneksi · server tidak mendukung multi-koneksi")
+                            .foregroundStyle(Theme.orange)
+                            .help((item.url.host ?? "").contains("takeout")
+                                  ? "ZIP folder Google Drive hanya bisa 1 koneksi. Lebih cepat: salin link folder Drive-nya, MacDownloader akan mengunduh semua file secara paralel."
+                                  : "Server ini tidak mengizinkan download bertahap, jadi kecepatannya terbatas satu koneksi.")
                     } else if item.status == .downloading && item.activeConnections > 0 {
-                        Text("\(item.url.host ?? "") · \(item.activeConnections) koneksi")
+                        Text("\(item.activeConnections) koneksi · \(item.url.host ?? "")")
                             .foregroundStyle(Theme.textSecondary)
                     } else {
                         Text(item.url.host ?? "").foregroundStyle(Theme.textSecondary)

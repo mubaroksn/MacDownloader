@@ -142,6 +142,22 @@ final class SegmentScheduler: @unchecked Sendable {
         }
     }
 
+    func recentlyYielded(within period: TimeInterval) -> Bool {
+        lock.withLock { s in s.lastYield.map { Date().timeIntervalSince($0) < period } ?? false }
+    }
+
+    /// True when another connection would have something to do and the server is quiet.
+    func canScale(quietPeriod: TimeInterval) -> Bool {
+        let minSplit = minSplitSize
+        return lock.withLock { s in
+            if let last = s.lastYield, Date().timeIntervalSince(last) < quietPeriod { return false }
+            return s.slots.contains { slot in
+                (!slot.assigned && !slot.state.isDone)
+                    || (slot.assigned && Self.unreserved(slot) >= 2 * minSplit)
+            }
+        }
+    }
+
     /// Marks the end of a stream whose length was unknown up front.
     func finishUnknownLength(_ id: Int) {
         lock.withLock { s in
