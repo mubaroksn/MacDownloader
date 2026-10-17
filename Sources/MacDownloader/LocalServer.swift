@@ -82,8 +82,9 @@ final class LocalServer {
             if let referrer = obj["referrer"] as? String, !referrer.isEmpty { headers["Referer"] = referrer }
             if let ua = obj["userAgent"] as? String, !ua.isEmpty { headers["User-Agent"] = ua }
             let name = (obj["filename"] as? String).map { ($0 as NSString).lastPathComponent }
+            let requestHeaders = headers
             Task { @MainActor in
-                DownloadManager.shared.add(urlString: url, fileName: name, headers: headers)
+                DownloadManager.shared.add(urlString: url, fileName: name, headers: requestHeaders)
                 NSApp.activate(ignoringOtherApps: true)
             }
             send(conn, status: "200 OK", json: ["ok": true])

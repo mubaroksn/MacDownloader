@@ -50,8 +50,8 @@ final class DownloadManager: ObservableObject {
 
     private init() {
         load()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            Task { @MainActor in DownloadManager.shared.tick() }
         }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
@@ -228,9 +228,10 @@ final class DownloadManager: ObservableObject {
         if useCategoryFolders { folder.appendPathComponent(item.category.label, isDirectory: true) }
         let dest = uniqueURL(in: folder, name: item.fileName)
         let parts = partsDir(for: id)
+        let targetFolder = folder
         Task.detached {
             do {
-                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: targetFolder, withIntermediateDirectories: true)
                 try SegmentedDownloader.merge(segments: segs, partsDir: parts, into: dest)
                 await MainActor.run { self.markCompleted(id, dest) }
             } catch {
