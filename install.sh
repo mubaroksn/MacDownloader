@@ -38,18 +38,21 @@ if [ -n "${MACDL_DMG:-}" ]; then
   [ -f "$DMG" ] || die "file $DMG tidak ditemukan."
   say "Memakai DMG lokal $(basename "$DMG")"
 else
+  # No GitHub API: unauthenticated API calls are rate-limited per IP. The
+  # /releases/latest page redirects to /releases/tag/vX.Y.Z, which gives the version.
   if [ -n "${MACDL_VERSION:-}" ]; then
-    api="https://api.github.com/repos/$REPO/releases/tags/v${MACDL_VERSION#v}"
+    version="${MACDL_VERSION#v}"
   else
-    api="https://api.github.com/repos/$REPO/releases/latest"
+    say "Mencari rilis terbaru…"
+    latest=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") \
+      || die "tidak bisa menghubungi GitHub."
+    version="${latest##*/tag/v}"
+    [ -n "$version" ] && [ "$version" != "$latest" ] || die "tidak menemukan rilis terbaru."
   fi
-  say "Mencari rilis terbaru…"
-  url=$(curl -fsSL "$api" | grep -o '"browser_download_url": *"[^"]*\.dmg"' | head -n 1 | sed 's/.*"\(https[^"]*\)"/\1/') \
-    || die "tidak bisa menghubungi GitHub."
-  [ -n "$url" ] || die "rilis tidak punya file .dmg."
+  url="https://github.com/$REPO/releases/download/v$version/MacDownloader-$version.dmg"
   DMG="$TMP/$(basename "$url")"
   say "Mengunduh $(basename "$url")"
-  curl -fL --progress-bar -o "$DMG" "$url" || die "unduhan gagal."
+  curl -fL --retry 3 --progress-bar -o "$DMG" "$url" || die "unduhan $(basename "$url") gagal."
 fi
 
 say "Membuka DMG"
