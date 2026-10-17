@@ -5,6 +5,7 @@ struct SettingsView: View {
     @ObservedObject private var server = LocalServer.shared
     @EnvironmentObject private var manager: DownloadManager
     @AppStorage(SettingsKey.connections) private var connections = 8
+    @AppStorage(SettingsKey.autoScale) private var autoScale = true
     @AppStorage(SettingsKey.maxConcurrent) private var maxConcurrent = 3
     @AppStorage(SettingsKey.folder) private var folder = ""
     @AppStorage(SettingsKey.useCategoryFolders) private var useCategoryFolders = true
@@ -26,7 +27,8 @@ struct SettingsView: View {
 
     private var general: some View {
         Form {
-            Stepper("Koneksi per download: \(connections)", value: $connections, in: 1...32)
+            Stepper("Koneksi awal per download: \(connections)", value: $connections, in: 1...32)
+            Toggle("Tambah koneksi otomatis selama kecepatan masih naik (maks 32)", isOn: $autoScale)
             Stepper("Download bersamaan: \(maxConcurrent)", value: $maxConcurrent, in: 1...10)
             LabeledContent("Simpan ke") {
                 HStack {

@@ -23,6 +23,8 @@ struct DownloadRequest: Sendable, Equatable {
     var userAgent: String?
     var origin: Origin
     var startImmediately = true
+    /// Save under Downloads/<subdirectory> instead of a category folder (e.g. a Drive folder tree).
+    var subdirectory: String?
 
     /// Returns nil for anything that isn't a plausible http(s) download.
     init?(urlString: String, suggestedFilename: String? = nil, referrer: String? = nil,

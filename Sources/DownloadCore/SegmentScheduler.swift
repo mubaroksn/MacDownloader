@@ -26,6 +26,7 @@ final class SegmentScheduler: @unchecked Sendable {
         var slots: [Slot]
         var activeWorkers: Int
         var lastYield: Date?
+        var retireRequests = 0
     }
 
     private let lock: OSAllocatedUnfairLock<State>
@@ -126,6 +127,22 @@ final class SegmentScheduler: @unchecked Sendable {
 
     var activeWorkers: Int { lock.withLock { $0.activeWorkers } }
 
+    /// Asks `count` workers to leave at their next chunk boundary.
+    func requestRetire(_ count: Int) {
+        lock.withLock { $0.retireRequests += max(0, count) }
+    }
+
+    /// Called by a worker between chunks. True = this worker should stop now; it is then
+    /// no longer counted, and its segment must be released (another worker continues it).
+    func consumeRetire() -> Bool {
+        lock.withLock { s in
+            guard s.retireRequests > 0, s.activeWorkers > 1 else { return false }
+            s.retireRequests -= 1
+            s.activeWorkers -= 1
+            return true
+        }
+    }
+
     func registerWorker() { lock.withLock { $0.activeWorkers += 1 } }
 
     /// Additive increase after a back-off: true when below target, nothing was refused for
@@ -134,6 +151,22 @@ final class SegmentScheduler: @unchecked Sendable {
         let minSplit = minSplitSize
         return lock.withLock { s in
             guard s.activeWorkers > 0, s.activeWorkers < target else { return false }
+            if let last = s.lastYield, Date().timeIntervalSince(last) < quietPeriod { return false }
+            return s.slots.contains { slot in
+                (!slot.assigned && !slot.state.isDone)
+                    || (slot.assigned && Self.unreserved(slot) >= 2 * minSplit)
+            }
+        }
+    }
+
+    func recentlyYielded(within period: TimeInterval) -> Bool {
+        lock.withLock { s in s.lastYield.map { Date().timeIntervalSince($0) < period } ?? false }
+    }
+
+    /// True when another connection would have something to do and the server is quiet.
+    func canScale(quietPeriod: TimeInterval) -> Bool {
+        let minSplit = minSplitSize
+        return lock.withLock { s in
             if let last = s.lastYield, Date().timeIntervalSince(last) < quietPeriod { return false }
             return s.slots.contains { slot in
                 (!slot.assigned && !slot.state.isDone)

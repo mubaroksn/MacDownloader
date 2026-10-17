@@ -55,6 +55,19 @@ struct DownloadsPage: View {
                     if let offer = ui.clipboardOffer {
                         ClipboardOfferBanner(url: offer)
                     }
+                    if let notice = ui.notice {
+                        HStack(spacing: 10) {
+                            Image(systemName: "info.circle").foregroundStyle(Theme.textSecondary)
+                            Text(notice).font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
+                            Spacer(minLength: 8)
+                            Button { ui.flash(nil) } label: { Image(systemName: "xmark") }
+                                .buttonStyle(IconButtonStyle(iconSize: 11))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.card))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.border))
+                    }
                     if !folders.isEmpty && search.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             SectionTitle(title: "Kategori", detail: nil)
@@ -313,8 +326,15 @@ struct FileRow: View {
                 Group {
                     if item.status == .failed, let error = item.errorMessage {
                         Text(error).foregroundStyle(Theme.red)
+                    } else if item.status == .downloading && !item.supportsRanges && !item.segments.isEmpty {
+                        // Server allows only one connection: the most common reason for "slow".
+                        Text("1 koneksi · server tidak mendukung multi-koneksi")
+                            .foregroundStyle(Theme.orange)
+                            .help((item.url.host ?? "").contains("takeout")
+                                  ? "ZIP folder Google Drive hanya bisa 1 koneksi. Lebih cepat: salin link folder Drive-nya, MacDownloader akan mengunduh semua file secara paralel."
+                                  : "Server ini tidak mengizinkan download bertahap, jadi kecepatannya terbatas satu koneksi.")
                     } else if item.status == .downloading && item.activeConnections > 0 {
-                        Text("\(item.url.host ?? "") · \(item.activeConnections) koneksi")
+                        Text("\(item.activeConnections) koneksi · \(item.url.host ?? "")")
                             .foregroundStyle(Theme.textSecondary)
                     } else {
                         Text(item.url.host ?? "").foregroundStyle(Theme.textSecondary)

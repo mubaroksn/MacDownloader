@@ -1,0 +1,47 @@
+name: Throughput benchmark
+on:
+  push:
+    branches: ["perf-*"]
+  workflow_dispatch:
+jobs:
+  bench:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build benchmark
+        run: swift build -c release --product mdl-bench 2>&1 | tail -n 5
+      - name: Benchmark
+        shell: bash {0}
+        run: |
+          BIN=$(swift build -c release --product mdl-bench --show-bin-path)/mdl-bench
+          run() {
+            label="$1"; url="$2"
+            c=$(curl -sL -o /dev/null --max-time 10 -w '%{speed_download}' "$url" || true)
+            curlmbps=$(python3 -c "print(round(float('$c')*8/1e6))")
+            out=$("$BIN" "$url" --connections 1,8,16,auto --seconds 15 2>&1 | tail -n 8 | tr '\n' ' ')
+            echo "::notice title=$label::curl(1 conn)=${curlmbps}Mbps | $out"
+          }
+          run "Google Drive file (500MB)" "https://drive.google.com/uc?id=1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ"
+          run "Hetzner Ashburn" "https://ash-speed.hetzner.com/10GB.bin"
+          run "Google dl" "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg"
+
+      - name: Benchmark on a Starlink-like link (dummynet)
+        shell: bash {0}
+        run: |
+          BIN=$(swift build -c release --product mdl-bench --show-bin-path)/mdl-bench
+          # ~50 ms RTT, 0.5 % loss, 200 Mbit/s, applied to HTTPS traffic in both directions.
+          sudo dnctl pipe 1 config bw 200Mbit/s delay 25 plr 0.005
+          sudo dnctl pipe 2 config delay 25 plr 0.005
+          printf 'dummynet in quick proto tcp from any port 443 to any pipe 1\ndummynet out quick proto tcp from any to any port 443 pipe 2\n' | sudo pfctl -f - 2>&1 | tail -n 2
+          sudo pfctl -E 2>&1 | tail -n 1
+          sudo dnctl list | head -n 4
+          run() {
+            label="$1"; url="$2"
+            c=$(curl -sL -o /dev/null --max-time 15 -w '%{speed_download}' "$url" || true)
+            curlmbps=$(python3 -c "print(round(float('$c' or 0)*8/1e6))")
+            out=$("$BIN" "$url" --connections 1,8,auto --seconds 20 2>&1 | tail -n 6 | tr '\n' ' ')
+            echo "::notice title=STARLINK-SIM $label::curl(1 conn)=${curlmbps}Mbps | $out"
+          }
+          run "Google Drive file" "https://drive.google.com/uc?id=1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ"
+          run "Google dl" "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg"
+          sudo pfctl -d 2>&1 | tail -n 1

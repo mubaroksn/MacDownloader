@@ -90,6 +90,8 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     /// The link as the user/browser gave it. `url` becomes the resolved (often expiring) CDN URL;
     /// every (re)start resolves again from this one.
     var sourceURL: URL?
+    /// Relative folder under the download folder (Drive folder downloads keep their structure).
+    var subdirectory: String?
 
     // Runtime-only values, not persisted.
     var speed: Double = 0
@@ -98,7 +100,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, url, fileName, category, status, totalBytes, downloadedBytes,
              supportsRanges, segments, destinationPath, errorMessage, addedAt,
-             completedAt, headers, nameLocked, tempPath, validator, sourceURL
+             completedAt, headers, nameLocked, tempPath, validator, sourceURL, subdirectory
     }
 
     init(url: URL, fileName: String, category: FileCategory) {
@@ -127,6 +129,7 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         tempPath = try c.decodeIfPresent(String.self, forKey: .tempPath)
         validator = try c.decodeIfPresent(String.self, forKey: .validator)
         sourceURL = try c.decodeIfPresent(URL.self, forKey: .sourceURL)
+        subdirectory = try c.decodeIfPresent(String.self, forKey: .subdirectory)
     }
 
     var progress: Double {
