@@ -48,6 +48,18 @@ extension DownloadEngineError: LocalizedError {
 }
 
 extension Error {
+    /// The connection could not be made or was dropped: often per-IP connection limits.
+    var isConnectionFailure: Bool {
+        guard let urlError = self as? URLError else { return false }
+        switch urlError.code {
+        case .timedOut, .cannotConnectToHost, .networkConnectionLost, .cannotFindHost,
+             .dnsLookupFailed, .notConnectedToInternet, .secureConnectionFailed:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// URLSession network failures that usually go away on retry.
     var isTransientNetworkError: Bool {
         guard let urlError = self as? URLError else { return false }

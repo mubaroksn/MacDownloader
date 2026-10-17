@@ -6,7 +6,7 @@ import Foundation
 public enum ResourceProber {
     public static func probe(_ request: RemoteRequest,
                              timeout: TimeInterval = 30,
-                             maxAttempts: Int = 4) async throws -> RemoteResource {
+                             maxAttempts: Int = 6) async throws -> RemoteResource {
         var attempt = 0
         while true {
             attempt += 1
@@ -16,7 +16,7 @@ public enum ResourceProber {
                 try Task.checkCancellation()
                 let retryable = (error as? DownloadEngineError)?.isTransient ?? error.isTransientNetworkError
                 guard retryable, attempt < maxAttempts else { throw error }
-                try await Task.sleep(nanoseconds: UInt64(attempt) * 1_500_000_000)
+                try await Task.sleep(nanoseconds: UInt64(min(20, 2 << (attempt - 1))) * 1_000_000_000)
             }
         }
     }

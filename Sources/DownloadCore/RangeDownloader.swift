@@ -19,8 +19,11 @@ public final class RangeDownloader: @unchecked Sendable {
         public var connections = 8
         /// Never split below this size: per-request overhead would dominate.
         public var minSplitSize: Int64 = 1 << 20
-        /// Consecutive failures a worker tolerates before the download fails.
-        public var maxConsecutiveFailures = 6
+        /// Consecutive failures the last remaining worker tolerates before the download fails
+        /// (about three minutes of exponential back-off at the default).
+        public var maxConsecutiveFailures = 10
+        /// After connections were shed, try adding one back this often (AIMD-style recovery).
+        public var rampUpInterval: TimeInterval = 10
         public var requestTimeout: TimeInterval = 60
         /// Per-connection buffer limit before the network task is suspended.
         public var highWaterMark = 4 << 20
@@ -79,11 +82,27 @@ public final class RangeDownloader: @unchecked Sendable {
         defer { sink.close() }
 
         if !scheduler.allDone {
-            try await withThrowingTaskGroup(of: Void.self) { group in
+            try await withThrowingTaskGroup(of: Child.self) { group in
                 for _ in 0..<workerCount {
-                    group.addTask { try await self.workerLoop(sink: sink) }
+                    group.addTask { try await self.workerLoop(sink: sink); return .worker }
                 }
-                try await group.waitForAll()
+                if resource.acceptsRanges && workerCount > 1 {
+                    group.addTask { try await self.tick(); return .tick }
+                }
+                // Supervisor: ends when the last worker leaves; on each tick, maybe add a connection back.
+                while let child = try await group.next() {
+                    if scheduler.activeWorkers == 0 {
+                        group.cancelAll()
+                        break
+                    }
+                    if child == .tick {
+                        if scheduler.shouldRampUp(target: workerCount, quietPeriod: configuration.rampUpInterval * 2) {
+                            scheduler.registerWorker()
+                            group.addTask { try await self.workerLoop(sink: sink); return .worker }
+                        }
+                        group.addTask { try await self.tick(); return .tick }
+                    }
+                }
             }
         }
         try Task.checkCancellation()
@@ -93,6 +112,12 @@ public final class RangeDownloader: @unchecked Sendable {
             try sink.truncate(to: scheduler.progress.downloaded)
         }
         try sink.synchronize()
+    }
+
+    private enum Child: Sendable { case worker, tick }
+
+    private func tick() async throws {
+        try await Task.sleep(nanoseconds: UInt64(max(0.05, configuration.rampUpInterval) * 1_000_000_000))
     }
 
     // MARK: - Worker
@@ -115,8 +140,11 @@ public final class RangeDownloader: @unchecked Sendable {
                     throw CancellationError()
                 }
                 let engineError = error as? DownloadEngineError
-                if case .throttled = engineError, resource.acceptsRanges {
-                    if scheduler.releaseAndYield(claim.id) { return } // others carry on with fewer connections
+                // Server pushback (429/503) or refused/timed-out connections: shed this connection
+                // while others are still making progress. The supervisor adds it back later.
+                let shed = engineError?.isThrottle == true || error.isConnectionFailure
+                if shed && resource.acceptsRanges {
+                    if scheduler.releaseAndYield(claim.id) { return }
                 } else {
                     scheduler.release(claim.id, resetProgress: restart)
                 }

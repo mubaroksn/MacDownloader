@@ -25,6 +25,7 @@ final class SegmentScheduler: @unchecked Sendable {
     private struct State {
         var slots: [Slot]
         var activeWorkers: Int
+        var lastYield: Date?
     }
 
     private let lock: OSAllocatedUnfairLock<State>
@@ -118,7 +119,26 @@ final class SegmentScheduler: @unchecked Sendable {
             s.slots[id].reserved = s.slots[id].state.downloaded
             guard s.activeWorkers > 1 else { return false }
             s.activeWorkers -= 1
+            s.lastYield = Date()
             return true
+        }
+    }
+
+    var activeWorkers: Int { lock.withLock { $0.activeWorkers } }
+
+    func registerWorker() { lock.withLock { $0.activeWorkers += 1 } }
+
+    /// Additive increase after a back-off: true when below target, nothing was refused for
+    /// `quietPeriod`, and there is work a new connection could take (free or splittable).
+    func shouldRampUp(target: Int, quietPeriod: TimeInterval) -> Bool {
+        let minSplit = minSplitSize
+        return lock.withLock { s in
+            guard s.activeWorkers > 0, s.activeWorkers < target else { return false }
+            if let last = s.lastYield, Date().timeIntervalSince(last) < quietPeriod { return false }
+            return s.slots.contains { slot in
+                (!slot.assigned && !slot.state.isDone)
+                    || (slot.assigned && Self.unreserved(slot) >= 2 * minSplit)
+            }
         }
     }
 

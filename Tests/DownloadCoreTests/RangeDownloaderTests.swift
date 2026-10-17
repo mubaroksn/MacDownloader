@@ -106,6 +106,30 @@ final class RangeDownloaderTests: XCTestCase {
         XCTAssertLessThanOrEqual(server.snapshot().peakActive, 2)
     }
 
+    func testConnectionsRampBackUpWhenServerRecovers() async throws {
+        var options = LocalRangeServer.Options()
+        options.bytesPerSecond = 1 << 20
+        let server = try LocalRangeServer(size: 8 << 20, options: options)
+        let resource = try await ResourceProber.probe(RemoteRequest(url: server.url))
+        server.setMaxConcurrent(1)                       // overloaded at first…
+        Task {
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            server.setMaxConcurrent(nil)                 // …then recovers
+        }
+
+        var cfg = config(connections: 4)
+        cfg.rampUpInterval = 0.3
+        let file = tempFile()
+        let downloader = RangeDownloader(request: RemoteRequest(url: server.url), resource: resource,
+                                         fileURL: file, configuration: cfg)
+        try await downloader.run()
+
+        XCTAssertEqual(try Data(contentsOf: file), server.content)
+        let stats = server.snapshot()
+        XCTAssertGreaterThan(stats.throttled, 0)
+        XCTAssertGreaterThanOrEqual(stats.peakActive, 3, "connections should be added back after the 429s stop")
+    }
+
     func testServerWithoutRangeSupportFallsBackToSingleStream() async throws {
         var options = LocalRangeServer.Options()
         options.supportsRanges = false
