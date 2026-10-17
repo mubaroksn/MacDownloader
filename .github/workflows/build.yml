@@ -102,6 +102,20 @@ jobs:
             echo "::warning title=Firefox sign failed::$msg"
           fi
 
+      - name: Installer script (install.sh from local DMG + latest release)
+        run: |
+          fail() { echo "::error title=install.sh::$1"; exit 1; }
+          DEST="$RUNNER_TEMP/apps-local"
+          MACDL_DMG="$(ls dist/*.dmg | head -n 1)" MACDL_DEST="$DEST" MACDL_NO_OPEN=1 bash install.sh || fail "install from local DMG failed"
+          [ -x "$DEST/MacDownloader.app/Contents/MacOS/MacDownloader" ] || fail "app missing after install"
+          xattr -p com.apple.quarantine "$DEST/MacDownloader.app" >/dev/null 2>&1 && fail "app still has the quarantine flag"
+          codesign -dv "$DEST/MacDownloader.app" 2>&1 | grep -q "Signature=adhoc" || fail "app is not ad-hoc signed"
+          echo "::notice title=install.sh::local DMG installed, ad-hoc signed, no quarantine flag"
+          DEST2="$RUNNER_TEMP/apps-latest"
+          MACDL_DEST="$DEST2" MACDL_NO_OPEN=1 bash install.sh || fail "install of the latest GitHub release failed"
+          v=$(defaults read "$DEST2/MacDownloader.app/Contents/Info" CFBundleShortVersionString)
+          echo "::notice title=install.sh::latest release downloaded and installed (v$v)"
+
       - name: Smoke test (launch app + real multi-connection download)
         run: |
           set -u
@@ -234,3 +248,11 @@ jobs:
             dist/*.zip
             dist/*.xpi
           generate_release_notes: true
+          body: |
+            ## Pasang
+            Cara tercepat — buka Terminal, tempel, Enter:
+            ```
+            curl -fsSL https://raw.githubusercontent.com/mubaroksn/MacDownloader/main/install.sh | bash
+            ```
+            Atau unduh `.dmg` di bawah, tarik ke Applications. Saat pertama dibuka macOS akan menolak (app belum dinotarisasi Apple):
+            buka **System Settings → Privacy & Security** → **Open Anyway**.

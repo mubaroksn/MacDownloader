@@ -21,9 +21,20 @@ Detail teknis ada di [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Instalasi
 
-1. Unduh `MacDownloader-x.y.z.dmg` dari tab **Actions** (artifact build terbaru) atau dari **Releases**.
+**Cara tercepat** — buka Terminal, tempel perintah ini, lalu Enter:
+
+```
+curl -fsSL https://raw.githubusercontent.com/mubaroksn/MacDownloader/main/install.sh | bash
+```
+
+Script mengunduh rilis terbaru, memasangnya ke **Applications**, lalu membuka app. Tidak ada peringatan Gatekeeper karena file yang diunduh lewat `curl` tidak diberi tanda karantina. Jalankan perintah yang sama untuk update.
+
+**Manual lewat DMG**
+
+1. Unduh `MacDownloader-x.y.z.dmg` dari **Releases**.
 2. Buka DMG, lalu tarik **MacDownloader** ke **Applications**.
-3. Pembukaan pertama: app ini belum ditandatangani dengan Apple Developer ID, jadi macOS akan memblokirnya. Klik kanan **MacDownloader** di Applications, pilih **Open**, lalu klik **Open** lagi. Jika masih diblokir, buka **System Settings → Privacy & Security** dan klik **Open Anyway**.
+3. Pembukaan pertama: app ini ditandatangani ad-hoc tapi belum dinotarisasi Apple, jadi macOS menolaknya. Buka **System Settings → Privacy & Security**, gulir ke bawah, klik **Open Anyway**. (Di macOS 15 Sequoia ke atas, klik kanan → Open sudah tidak berlaku.)
+   Alternatif lewat Terminal: `xattr -dr com.apple.quarantine /Applications/MacDownloader.app`
 
 ## Memasang ekstensi browser
 
