@@ -171,7 +171,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         guard let i = index(id), transfers[id] == nil else { return }
         items[i].status = .downloading
         items[i].errorMessage = nil
-        let task = Task { [weak self] in await self?.runTransfer(id) }
+        let task = Task { await DownloadManager.shared.runTransfer(id) }
         transfers[id] = ActiveTransfer(task: task)
     }
 
