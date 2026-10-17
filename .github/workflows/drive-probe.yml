@@ -11,27 +11,20 @@ jobs:
           UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
           curl -sL -A "$UA" -H "Accept-Language: en-US,en;q=0.9" "https://drive.google.com/drive/folders/$ID" -o f.html -w "%{http_code} %{content_type}\n"
           python3 - <<'PY'
-          import re, collections
+          import re, json
           h=open('f.html',encoding='utf-8',errors='replace').read()
           def note(t,m): print('::notice title=%s::%s' % (t, m.replace('%','%25').replace('\r','').replace('\n','%0A')[:60000]))
-          note('title', ' '.join(re.findall(r'<title>([^<]*)</title>', h)))
-          ids=re.findall(r'(?<![A-Za-z0-9_-])(1[A-Za-z0-9_-]{24,44})(?![A-Za-z0-9_-])', h)
-          c=collections.Counter(ids)
-          note('ids', '%d distinct; top: %s' % (len(c), c.most_common(12)))
-          for marker in ['_DRIVE_ivd','AF_initDataCallback','window[\'_','ds:','application/vnd.google-apps.folder','vnd.google-apps']:
-              note('marker '+marker.replace("'",""), str(h.count(marker)))
-          # context around the 3 most common ids other than the folder id
-          shown=0
-          for i,(k,_) in enumerate(c.most_common(10)):
-              if k.startswith('1Gz05B'): continue
-              j=h.find(k)
-              note('ctx '+k[:8], h[max(0,j-400):j+600])
-              shown+=1
-              if shown>=3: break
-          for pat in [r'window\[\'_DRIVE_ivd\'\]', r'_DRIVE_ivd']:
-              pass
-          j=h.find("_DRIVE_ivd")
-          if j>=0: note('ivd', h[j-100:j+1500])
-          j=h.find('vnd.google-apps')
-          if j>=0: note('apps ctx', h[max(0,j-1500):j+500])
+          m=re.search(r"window\['_DRIVE_ivd'\]\s*=\s*'(.*?)';", h, re.S)
+          if not m:
+              j=h.find('_DRIVE_ivd'); note('raw', h[j-200:j+400]); raise SystemExit
+          raw=m.group(1)
+          note('raw head', raw[:600])
+          dec=raw.encode('utf-8').decode('unicode_escape')
+          arr=json.loads(dec)
+          note('shape', 'top len=%d; types=%s' % (len(arr), [type(x).__name__ for x in arr][:6]))
+          rows=arr[0] or []
+          note('rows', '%d rows' % len(rows))
+          for r in rows[:4]:
+              note('row', json.dumps([(i, v) for i, v in enumerate(r[:30]) if v not in (None, [], '', 0)])[:1500])
+          note('names', ' | '.join('%s [%s]' % (r[2], r[3]) for r in rows[:40]))
           PY
