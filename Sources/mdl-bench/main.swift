@@ -21,17 +21,21 @@ func option(_ name: String) -> String? {
     guard let i = args.firstIndex(of: name), args.indices.contains(i + 1) else { return nil }
     return args[i + 1]
 }
-let connectionList = (option("--connections") ?? "1,4,8,16,32").split(separator: ",").compactMap { Int($0) }
+// Numbers = fixed connection counts; "auto" = 8 initial connections with auto-scaling.
+let connectionList = (option("--connections") ?? "1,8,16,auto").split(separator: ",").map(String.init)
 let seconds = Double(option("--seconds") ?? "10") ?? 10
 
 let resolved = try await DownloadResolver.resolve(RemoteRequest(url: url), timeout: 20, maxAttempts: 2)
 let r = resolved.resource
 print("PROBE host=\(r.finalURL.host ?? "?") ranges=\(r.acceptsRanges) size=\(r.totalBytes) type=\(r.contentType ?? "-")")
 
-for connections in connectionList {
+for spec in connectionList {
+    let auto = spec == "auto"
+    let connections = auto ? 8 : (Int(spec) ?? 8)
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("bench-\(UUID().uuidString).bin")
     var config = RangeDownloader.Configuration()
     config.connections = connections
+    config.autoScale = auto
     let downloader = RangeDownloader(request: resolved.request, resource: r, fileURL: file, configuration: config)
 
     let cpuStart = cpuSeconds()
@@ -58,7 +62,7 @@ for connections in connectionList {
     let cpu = cpuSeconds() - cpuStart
     let mbps = Double(bytes) * 8 / elapsed / 1e6
     let cpuPerGB = bytes > 0 ? cpu / (Double(bytes) / 1e9) : 0
-    print(String(format: "RESULT conns=%d active=%d avg=%.0fMbps (%.1fMB/s) peak=%.0fMbps cpu=%.2fs cpu/GB=%.2fs",
-                 connections, maxConnections, mbps, mbps / 8, peak * 8 / 1e6, cpu, cpuPerGB))
+    print(String(format: "RESULT conns=%@ active=%d avg=%.0fMbps (%.1fMB/s) peak=%.0fMbps cpu=%.2fs cpu/GB=%.2fs",
+                 spec, maxConnections, mbps, mbps / 8, peak * 8 / 1e6, cpu, cpuPerGB))
     try? FileManager.default.removeItem(at: file)
 }
