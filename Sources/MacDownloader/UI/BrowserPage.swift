@@ -5,7 +5,7 @@ enum ExtensionInstaller {
     /// Copies the bundled Chrome extension to Application Support and reveals it in Finder.
     static func install() -> Result<URL, Error> {
         guard let source = Bundle.main.resourceURL?.appendingPathComponent("ChromeExtension") else {
-            return .failure(DownloadError.message("Ekstensi tidak ditemukan di dalam app"))
+            return .failure(CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "Ekstensi tidak ditemukan di dalam app"]))
         }
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

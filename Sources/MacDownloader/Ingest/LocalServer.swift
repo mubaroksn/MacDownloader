@@ -12,6 +12,9 @@ final class LocalServer: ObservableObject {
     static let shared = LocalServer()
     static let port: UInt16 = 9614
 
+    /// Where accepted requests go. Set once at launch; the server never touches the queue directly.
+    @MainActor weak var dispatcher: DownloadDispatching?
+
     @Published private(set) var isRunning = false
     private var listener: NWListener?
     private let queue = DispatchQueue(label: "macdl.server")
@@ -78,15 +81,18 @@ final class LocalServer: ObservableObject {
                 send(conn, status: "400 Bad Request", json: ["ok": false, "error": "url wajib diisi"])
                 return
             }
-            var headers: [String: String] = [:]
-            if let cookie = obj["cookie"] as? String, !cookie.isEmpty { headers["Cookie"] = cookie }
-            if let referrer = obj["referrer"] as? String, !referrer.isEmpty { headers["Referer"] = referrer }
-            if let ua = obj["userAgent"] as? String, !ua.isEmpty { headers["User-Agent"] = ua }
-            let name = (obj["filename"] as? String).map { ($0 as NSString).lastPathComponent }
-            let requestHeaders = headers
-            Task { @MainActor in
-                DownloadManager.shared.add(urlString: url, fileName: name, headers: requestHeaders)
-                NSApp.activate(ignoringOtherApps: true)
+            let filename = (obj["filename"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            guard let download = DownloadRequest(urlString: url,
+                                                 suggestedFilename: filename,
+                                                 referrer: obj["referrer"] as? String,
+                                                 cookie: obj["cookie"] as? String,
+                                                 userAgent: obj["userAgent"] as? String,
+                                                 origin: .browserExtension) else {
+                send(conn, status: "400 Bad Request", json: ["ok": false, "error": "url tidak valid"])
+                return
+            }
+            Task { @MainActor [weak self] in
+                self?.dispatcher?.enqueue(download)
             }
             send(conn, status: "200 OK", json: ["ok": true])
         default:

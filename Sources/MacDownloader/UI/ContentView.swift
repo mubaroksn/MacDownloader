@@ -106,7 +106,7 @@ struct ContentView: View {
         }
         .dropDestination(for: URL.self) { urls, _ in
             let web = urls.filter { ["http", "https"].contains($0.scheme?.lowercased() ?? "") }
-            web.forEach { manager.add(urlString: $0.absoluteString) }
+            web.forEach { manager.add(urlString: $0.absoluteString, origin: .dragAndDrop) }
             return !web.isEmpty
         }
     }
