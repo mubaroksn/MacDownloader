@@ -12,6 +12,9 @@ cd "$ROOT"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
+echo "==> Packaging browser extensions"
+VERSION="$VERSION" OUT="$OUT" "$ROOT/scripts/build_extensions.sh"
+
 echo "==> Compiling"
 swift build -c release --arch arm64 --arch x86_64
 BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/MacDownloader"
@@ -20,7 +23,7 @@ echo "==> Assembling app bundle"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/MacDownloader"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
-cp -R ChromeExtension "$APP/Contents/Resources/ChromeExtension"
+cp -R "$OUT/ext/ChromeExtension" "$APP/Contents/Resources/ChromeExtension"
 
 echo "==> Building icon"
 ICONSET="$OUT/AppIcon.iconset"
@@ -43,9 +46,6 @@ cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "MacDownloader" -srcfolder "$STAGE" -ov -format UDZO "$OUT/MacDownloader-$VERSION.dmg"
 rm -rf "$STAGE"
-
-echo "==> Packaging browser extension"
-(cd "$ROOT" && zip -qr "$OUT/MacDownloader-ChromeExtension-$VERSION.zip" ChromeExtension)
 
 echo "Done:"
 ls -lh "$OUT"

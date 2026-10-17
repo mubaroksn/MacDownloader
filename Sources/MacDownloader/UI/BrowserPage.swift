@@ -53,7 +53,7 @@ struct BrowserPage: View {
                     statusCard
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "Pasang ekstensi", detail: "Chrome · Edge · Brave · Arc · Dia")
+                        SectionTitle(title: "Pasang ekstensi", detail: "Chrome · Edge · Brave · Arc · Dia · Firefox")
                         VStack(spacing: 0) {
                             ForEach(steps.indices, id: \.self) { i in
                                 HStack(alignment: .top, spacing: 14) {
@@ -97,10 +97,15 @@ struct BrowserPage: View {
                             }
                         }
                         .labelStyle(CompactLabelStyle())
+
+                        Text("**Firefox:** unduh file MacDownloader-Firefox (.xpi) dari halaman Releases di GitHub, lalu seret ke jendela Firefox dan klik Add.")
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "Tanpa ekstensi", detail: "Safari, Firefox, atau app apa pun")
+                        SectionTitle(title: "Tanpa ekstensi", detail: "Safari, atau app apa pun")
                         HStack(alignment: .top, spacing: 14) {
                             feature("doc.on.clipboard", "Salin link",
                                     "Klik kanan link download › Copy Link. MacDownloader langsung menawarkan untuk mengunduhnya.")

@@ -1,4 +1,5 @@
-// MacDownloader browser extension (Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera…).
+// MacDownloader browser extension (Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera… and Firefox).
+// One source for every browser: scripts/build_extensions.sh derives the Firefox manifest.
 //
 // Flow for every browser download:
 //   1. pause it in the browser (nothing is lost),
@@ -18,6 +19,8 @@ async function getSettings() {
 }
 
 function browserName() {
+  const ff = navigator.userAgent.match(/Firefox\/(\d+)/);
+  if (ff) return "Firefox";
   const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
   const named = brands.map((b) => b.brand).filter((b) => !/Not.?A.?Brand|Chromium/i.test(b));
   if (named.length) return named[0];
@@ -47,16 +50,17 @@ async function hello() {
   }
 }
 
-async function cookieHeader(url) {
+// storeId: Firefox containers/private windows keep their own cookie jar (item.cookieStoreId).
+async function cookieHeader(url, storeId) {
   try {
-    const cookies = await chrome.cookies.getAll({ url });
+    const cookies = await chrome.cookies.getAll(storeId ? { url, storeId } : { url });
     return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
   } catch {
     return "";
   }
 }
 
-async function handOff({ url, filename = "", referrer = "" }) {
+async function handOff({ url, filename = "", referrer = "", storeId }) {
   try {
     const res = await post(
       "/add",
@@ -64,7 +68,7 @@ async function handOff({ url, filename = "", referrer = "" }) {
         url,
         filename,
         referrer,
-        cookie: await cookieHeader(url),
+        cookie: await cookieHeader(url, storeId),
         userAgent: navigator.userAgent,
         handoff: true,
       },
@@ -90,7 +94,7 @@ chrome.downloads.onCreated.addListener(async (item) => {
   try { await chrome.downloads.pause(item.id); } catch {}
 
   const filename = item.filename ? item.filename.split(/[\\/]/).pop() : "";
-  const accepted = await handOff({ url, filename, referrer: item.referrer || "" });
+  const accepted = await handOff({ url, filename, referrer: item.referrer || "", storeId: item.cookieStoreId });
 
   if (accepted) {
     try { await chrome.downloads.cancel(item.id); } catch {}
@@ -128,10 +132,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "macdl-heartbeat") hello();
 });
 
-chrome.contextMenus.onClicked.addListener(async (info) => {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const url = info.linkUrl || info.srcUrl;
   if (!url || !/^https?:/i.test(url)) return;
-  const ok = await handOff({ url, referrer: info.pageUrl || "" });
+  const ok = await handOff({ url, referrer: info.pageUrl || "", storeId: tab && tab.cookieStoreId });
   flashBadge(ok ? "✓" : "!", ok ? "#1a7f37" : "#d93025");
 });
 
