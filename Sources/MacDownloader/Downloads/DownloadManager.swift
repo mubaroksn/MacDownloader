@@ -14,6 +14,40 @@ enum SettingsKey {
     static let showMenuBar = "showMenuBarExtra"
     static let monitorClipboard = "monitorClipboard"
     static let autoScale = "autoScaleConnections"
+    static let speedMode = "speedMode"
+    static let saverLimitKB = "speedLimitSaverKB"
+    static let quietLimitKB = "speedLimitQuietKB"
+    static let launchAtLogin = "launchAtLogin"
+    static let themeMode = "themeMode"
+    static let autoCheckUpdates = "autoCheckUpdates"
+    static let statsDay = "statsDay"
+    static let statsTodayBytes = "statsTodayBytes"
+}
+
+/// Speed presets shown on the downloads page and in the menu bar.
+enum SpeedMode: String, CaseIterable, Identifiable {
+    case full, saver, quiet
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .full: return "Penuh"
+        case .saver: return "Hemat"
+        case .quiet: return "Senyap"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .full: return "hare"
+        case .saver: return "tortoise"
+        case .quiet: return "moon"
+        }
+    }
+
+    /// Default caps in KB/s (Starlink ~25 MB/s: Hemat leaves room for calls and streaming).
+    static let defaultSaverKB = 5 * 1024
+    static let defaultQuietKB = 1024
 }
 
 /// Owns the queue and its persistence; the UI's single source of truth.
@@ -26,6 +60,20 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
     static let shared = DownloadManager()
 
     @Published private(set) var items: [DownloadItem] = []
+    /// Total speed, one sample per progress tick (~0.5 s), newest last. Feeds the sparkline.
+    @Published private(set) var speedHistory: [Double] = Array(repeating: 0, count: DownloadManager.historyLength)
+    /// Bytes transferred since local midnight (all downloads, including partial ones).
+    @Published private(set) var todayBytes: Int64 = 0
+    @Published var speedMode: SpeedMode = .full {
+        didSet {
+            defaults.set(speedMode.rawValue, forKey: SettingsKey.speedMode)
+            applySpeedLimit()
+        }
+    }
+
+    /// One cap for every connection of every download.
+    let limiter = BandwidthLimiter()
+    static let historyLength = 120
 
     private struct ActiveTransfer {
         let task: Task<Void, Never>
@@ -64,11 +112,29 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
     }
 
+    var saverLimitKB: Int { max(64, defaults.object(forKey: SettingsKey.saverLimitKB) as? Int ?? SpeedMode.defaultSaverKB) }
+    var quietLimitKB: Int { max(64, defaults.object(forKey: SettingsKey.quietLimitKB) as? Int ?? SpeedMode.defaultQuietKB) }
+
+    /// Cap for a mode in bytes per second (0 = none).
+    func limit(for mode: SpeedMode) -> Int64 {
+        switch mode {
+        case .full: return 0
+        case .saver: return Int64(saverLimitKB) * 1024
+        case .quiet: return Int64(quietLimitKB) * 1024
+        }
+    }
+
+    /// Re-applies the current mode (also after the user edits a preset in Settings).
+    func applySpeedLimit() { limiter.setLimit(limit(for: speedMode)) }
+
     var activeCount: Int { items.filter { $0.status == .downloading }.count }
     var totalSpeed: Double { items.filter { $0.status == .downloading }.reduce(0) { $0 + $1.speed } }
 
     private init() {
         load()
+        speedMode = SpeedMode(rawValue: defaults.string(forKey: SettingsKey.speedMode) ?? "") ?? .full
+        applySpeedLimit()
+        rollStatsDayIfNeeded()
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
@@ -262,6 +328,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             config.connections = connectionsPerDownload
             config.autoScale = defaults.object(forKey: SettingsKey.autoScale) as? Bool ?? true
             config.maxConnections = 32
+            config.limiter = limiter
             let downloader = RangeDownloader(
                 request: RemoteRequest(url: resource.finalURL, headers: resolved.request.headers),
                 resource: resource,
@@ -269,15 +336,20 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
                 resumeFrom: resumeSegments,
                 configuration: config)
             transfers[id]?.downloader = downloader
+            lastSample[id] = (downloader.progress.downloadedBytes, Date())
             startTimerIfNeeded()
 
             try await downloader.run()
 
+            countFinalBytes(downloader, id)
             capture(downloader, into: id)
             try moveIntoPlace(id)
             transfers[id] = nil
         } catch {
-            if let downloader = transfers[id]?.downloader { capture(downloader, into: id) }
+            if let downloader = transfers[id]?.downloader {
+                countFinalBytes(downloader, id)
+                capture(downloader, into: id)
+            }
             transfers[id] = nil
             handleFailure(id, error)
         }
@@ -424,6 +496,8 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
 
     private func tick() {
         let now = Date()
+        rollStatsDayIfNeeded()
+        var transferred: Int64 = 0
         for (id, transfer) in transfers {
             guard let downloader = transfer.downloader, let i = index(id) else { continue }
             let progress = downloader.progress
@@ -431,6 +505,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             items[i].activeConnections = progress.activeConnections
             if let last = lastSample[id] {
                 let dt = now.timeIntervalSince(last.time)
+                transferred += max(0, progress.downloadedBytes - last.bytes)
                 if dt > 0 {
                     let instant = max(0, Double(progress.downloadedBytes - last.bytes) / dt)
                     items[i].speed = items[i].speed == 0 ? instant : items[i].speed * 0.7 + instant * 0.3
@@ -438,6 +513,8 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             }
             lastSample[id] = (progress.downloadedBytes, now)
         }
+        addTransferred(transferred)
+        pushSpeedSample(totalSpeed)
         // Checkpoint segment layout every ~5 s so a crash loses at most a few seconds.
         tickCount += 1
         if tickCount % 10 == 0 {
@@ -458,8 +535,61 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         if !transferring {
             timer?.invalidate()
             timer = nil
+            if (speedHistory.last ?? 0) > 0 { pushSpeedSample(0) }
         }
     }
+
+    // MARK: Statistics
+
+    private func pushSpeedSample(_ value: Double) {
+        var history = speedHistory
+        history.append(value)
+        if history.count > Self.historyLength { history.removeFirst(history.count - Self.historyLength) }
+        speedHistory = history
+    }
+
+    /// Counts what arrived between the last tick and the end of a transfer.
+    private func countFinalBytes(_ downloader: RangeDownloader, _ id: UUID) {
+        guard let last = lastSample[id] else { return }
+        addTransferred(max(0, downloader.progress.downloadedBytes - last.bytes))
+        lastSample[id] = (downloader.progress.downloadedBytes, Date())
+    }
+
+    private func addTransferred(_ bytes: Int64) {
+        guard bytes > 0 else { return }
+        rollStatsDayIfNeeded()
+        todayBytes += bytes
+        defaults.set(todayBytes, forKey: SettingsKey.statsTodayBytes)
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    /// Starts a fresh "today" counter after midnight (checked on every tick and on launch).
+    func rollStatsDayIfNeeded() {
+        let today = Self.dayFormatter.string(from: Date())
+        if defaults.string(forKey: SettingsKey.statsDay) != today {
+            defaults.set(today, forKey: SettingsKey.statsDay)
+            defaults.set(Int64(0), forKey: SettingsKey.statsTodayBytes)
+            if todayBytes != 0 { todayBytes = 0 }
+        } else if todayBytes == 0 {
+            let stored = (defaults.object(forKey: SettingsKey.statsTodayBytes) as? NSNumber)?.int64Value ?? 0
+            if stored != 0 { todayBytes = stored }
+        }
+    }
+
+    /// Downloads finished since local midnight.
+    var completedTodayCount: Int {
+        let start = Calendar.current.startOfDay(for: Date())
+        return items.filter { $0.status == .completed && ($0.completedAt ?? .distantPast) >= start }.count
+    }
+
+    var queuedCount: Int { items.filter { $0.status == .queued }.count }
+    var pausedCount: Int { items.filter { $0.status == .paused }.count }
 
     // MARK: Files
 

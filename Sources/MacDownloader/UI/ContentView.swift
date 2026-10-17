@@ -44,13 +44,12 @@ enum SidebarFilter: Hashable {
     var isCategory: Bool { if case .category = self { return true } else { return false } }
 }
 
-enum AppPage { case downloads, browser }
+enum AppPage { case downloads, browser, settings }
 enum SidebarTab: Hashable { case status, category }
 
 struct ContentView: View {
     @EnvironmentObject private var manager: DownloadManager
     @EnvironmentObject private var ui: UIState
-    @State private var page: AppPage = UserDefaults.standard.string(forKey: "startPage") == "browser" ? .browser : .downloads
     @State private var filter: SidebarFilter = .all
     @State private var tab: SidebarTab = .status
     @State private var search = ""
@@ -61,12 +60,17 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopBar(openBrowserPage: { page = .browser })
+            TopBar(openBrowserPage: { ui.page = .browser })
             Hairline()
             HStack(spacing: 0) {
-                Rail(page: $page)
+                Rail(page: $ui.page)
                 Hairline(vertical: true)
-                if page == .downloads && sidebarVisible {
+                if ui.page == .settings {
+                    SettingsSidebar(section: $ui.settingsSection)
+                        .frame(width: 272)
+                    Hairline(vertical: true)
+                }
+                if ui.page == .downloads && sidebarVisible {
                     SidebarPanel(filter: $filter, tab: $tab, search: $search,
                                  onAdd: { ui.showAddSheet = true },
                                  onCollapse: { withAnimation(.easeInOut(duration: 0.2)) { sidebarVisible = false } })
@@ -75,13 +79,15 @@ struct ContentView: View {
                     Hairline(vertical: true)
                 }
                 Group {
-                    switch page {
+                    switch ui.page {
                     case .downloads:
                         DownloadsPage(filter: $filter, tab: $tab, search: $search, selection: $selection,
                                       sidebarVisible: $sidebarVisible,
                                       onDelete: { ids in pendingDelete = ids; confirmDelete = true })
                     case .browser:
                         BrowserPage()
+                    case .settings:
+                        SettingsPage(section: ui.settingsSection)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -132,6 +138,12 @@ struct TopBar: View {
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold))
                     Text(Format.speed(totalSpeed)).monospacedDigit()
+                    if manager.speedMode != .full {
+                        Image(systemName: manager.speedMode.symbol)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                            .help("Mode \(manager.speedMode.label) aktif")
+                    }
                 }
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.textPrimary)
@@ -192,28 +204,14 @@ struct Rail: View {
                 .buttonStyle(IconButtonStyle(size: 40, active: page == .browser, iconSize: 18))
                 .help("Integrasi browser")
             Spacer()
-            SettingsButton()
+            Button { page = .settings } label: { Image(systemName: "gearshape") }
+                .buttonStyle(IconButtonStyle(size: 40, active: page == .settings, iconSize: 18))
+                .help("Pengaturan (⌘,)")
         }
         .padding(.vertical, 14)
         .frame(width: 64)
         .frame(maxHeight: .infinity)
         .background(Theme.chrome)
-    }
-}
-
-struct SettingsButton: View {
-    var body: some View {
-        if #available(macOS 14.0, *) {
-            SettingsLink { Image(systemName: "gearshape") }
-                .buttonStyle(IconButtonStyle(size: 40, iconSize: 18))
-                .help("Pengaturan")
-        } else {
-            Button {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-            } label: { Image(systemName: "gearshape") }
-                .buttonStyle(IconButtonStyle(size: 40, iconSize: 18))
-                .help("Pengaturan")
-        }
     }
 }
 

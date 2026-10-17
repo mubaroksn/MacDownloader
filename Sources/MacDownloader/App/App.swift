@@ -21,19 +21,21 @@ struct MacDownloaderApp: App {
                 Button("Tambah Download…") { ui.showAddSheet = true }
                     .keyboardShortcut("n")
             }
+            CommandGroup(replacing: .appSettings) {
+                OpenSettingsCommand()
+            }
             CommandMenu("Download") {
                 Button("Lanjutkan Semua") { manager.resumeAll() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                 Button("Jeda Semua") { manager.pauseAll() }
                     .keyboardShortcut("p", modifiers: [.command, .shift])
                 Divider()
+                Picker("Kecepatan", selection: $manager.speedMode) {
+                    ForEach(SpeedMode.allCases) { Text($0.label).tag($0) }
+                }
+                Divider()
                 Button("Bersihkan yang Selesai") { manager.removeCompleted() }
             }
-        }
-
-        Settings {
-            SettingsView()
-                .environmentObject(manager)
         }
 
         MenuBarExtra(isInserted: $showMenuBar) {
@@ -49,15 +51,47 @@ struct MacDownloaderApp: App {
     static let mainWindowID = "main"
 }
 
+/// ⌘, opens the Settings page inside the main window (same look as the rest of the app).
+private struct OpenSettingsCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Pengaturan…") {
+            UIState.shared.openSettings()
+            MainWindow.show { openWindow(id: MacDownloaderApp.mainWindowID) }
+        }
+        .keyboardShortcut(",")
+    }
+}
+
 @MainActor
 final class UIState: ObservableObject {
     static let shared = UIState()
     @Published var showAddSheet = false
+    /// Which page the main window shows (rail selection).
+    @Published var page: AppPage
+    @Published var settingsSection: SettingsSection
     /// A download link the user just copied elsewhere (clipboard monitor).
     @Published var clipboardOffer: URL?
     /// Short status line shown at the top of the downloads page.
     @Published private(set) var notice: String?
     private var noticeToken = 0
+
+    private init() {
+        // -startPage browser|settings and -settingsSection <id> are used by CI screenshots.
+        let defaults = UserDefaults.standard
+        switch defaults.string(forKey: "startPage") {
+        case "browser": page = .browser
+        case "settings": page = .settings
+        default: page = .downloads
+        }
+        settingsSection = SettingsSection(rawValue: defaults.string(forKey: "settingsSection") ?? "") ?? .general
+    }
+
+    func openSettings(_ section: SettingsSection? = nil) {
+        if let section { settingsSection = section }
+        page = .settings
+    }
 
     func flash(_ text: String?, autoHide: Bool = true) {
         noticeToken += 1
@@ -80,6 +114,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated {
             LinkOffer.registerCategories()
             ClipboardMonitor.shared.setEnabled(UserDefaults.standard.object(forKey: SettingsKey.monitorClipboard) as? Bool ?? true)
+            ThemeMode.applyStored()
+            if UserDefaults.standard.object(forKey: SettingsKey.autoCheckUpdates) as? Bool ?? true {
+                UpdateChecker.shared.check()
+            }
         }
 
         // Optional overrides, used by CI screenshots: -appearance dark|light

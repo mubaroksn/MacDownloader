@@ -32,6 +32,8 @@ public final class RangeDownloader: @unchecked Sendable {
         public var requestTimeout: TimeInterval = 60
         /// Per-connection buffer limit before the network task is suspended.
         public var highWaterMark = 4 << 20
+        /// Optional speed cap shared with other downloads (nil = unlimited).
+        public var limiter: BandwidthLimiter?
 
         public init() {}
     }
@@ -232,6 +234,8 @@ public final class RangeDownloader: @unchecked Sendable {
                     try sink.write(data, count: length, at: offset)
                 }
                 let complete = scheduler.commit(claim.id, length: length)
+                // Holding the acknowledgement back lets the stream's backpressure slow the socket.
+                if let limiter = configuration.limiter { try await limiter.acquire(data.count) }
                 stream.consumed(data.count)
                 if !complete, length == data.count, scheduler.consumeRetire() { throw RetireSignal() }
                 // Done, or another worker stole the rest of this segment.
