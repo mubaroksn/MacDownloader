@@ -140,14 +140,21 @@ struct DownloadItem: Identifiable, Codable, Equatable {
 }
 
 enum Format {
+    private static let byteFormatter: ByteCountFormatter = {
+        let f = ByteCountFormatter()
+        f.countStyle = .file
+        f.allowsNonnumericFormatting = false
+        return f
+    }()
+
     static func bytes(_ value: Int64) -> String {
         guard value >= 0 else { return "—" }
-        return ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
+        return byteFormatter.string(fromByteCount: value)
     }
 
     static func speed(_ bytesPerSecond: Double) -> String {
         guard bytesPerSecond > 0 else { return "" }
-        return ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file) + "/s"
+        return bytes(Int64(bytesPerSecond)) + "/s"
     }
 
     static func duration(_ seconds: TimeInterval?) -> String {

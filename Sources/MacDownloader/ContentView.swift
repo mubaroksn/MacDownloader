@@ -50,7 +50,7 @@ enum SidebarTab: Hashable { case status, category }
 struct ContentView: View {
     @EnvironmentObject private var manager: DownloadManager
     @EnvironmentObject private var ui: UIState
-    @State private var page: AppPage = .downloads
+    @State private var page: AppPage = UserDefaults.standard.string(forKey: "startPage") == "browser" ? .browser : .downloads
     @State private var filter: SidebarFilter = .all
     @State private var tab: SidebarTab = .status
     @State private var search = ""
@@ -116,6 +116,7 @@ struct ContentView: View {
 
 struct TopBar: View {
     @EnvironmentObject private var manager: DownloadManager
+    @ObservedObject private var server = LocalServer.shared
 
     var body: some View {
         let totalSpeed = manager.items.filter { $0.status == .downloading }.reduce(0) { $0 + $1.speed }
@@ -139,9 +140,9 @@ struct TopBar: View {
             }
             HStack(spacing: 6) {
                 Circle()
-                    .fill(LocalServer.shared.isRunning ? Theme.green : Theme.textTertiary)
+                    .fill(server.isRunning ? Theme.green : Theme.textTertiary)
                     .frame(width: 7, height: 7)
-                Text(LocalServer.shared.isRunning ? "Browser terhubung" : "Browser tidak terhubung")
+                Text(server.isRunning ? "Browser terhubung" : "Browser tidak terhubung")
             }
             .font(.system(size: 12))
             .foregroundStyle(Theme.textSecondary)

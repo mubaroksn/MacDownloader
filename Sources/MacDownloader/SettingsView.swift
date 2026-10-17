@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject private var server = LocalServer.shared
     @EnvironmentObject private var manager: DownloadManager
     @AppStorage(SettingsKey.connections) private var connections = 8
     @AppStorage(SettingsKey.maxConcurrent) private var maxConcurrent = 3
@@ -43,8 +44,8 @@ struct SettingsView: View {
     private var browser: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Circle().fill(LocalServer.shared.isRunning ? Color.green : Color.red).frame(width: 8, height: 8)
-                Text(LocalServer.shared.isRunning
+                Circle().fill(server.isRunning ? Color.green : Color.red).frame(width: 8, height: 8)
+                Text(server.isRunning
                      ? "Menunggu browser di 127.0.0.1:\(LocalServer.port)"
                      : "Server lokal tidak berjalan (port \(LocalServer.port) dipakai app lain?)")
             }

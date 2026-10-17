@@ -24,6 +24,7 @@ enum ExtensionInstaller {
 }
 
 struct BrowserPage: View {
+    @ObservedObject private var server = LocalServer.shared
     @State private var result: String?
 
     private let steps: [(String, String)] = [
@@ -114,7 +115,7 @@ struct BrowserPage: View {
     }
 
     private var statusCard: some View {
-        let running = LocalServer.shared.isRunning
+        let running = server.isRunning
         return HStack(spacing: 14) {
             Circle()
                 .fill((running ? Theme.green : Theme.red).opacity(0.15))

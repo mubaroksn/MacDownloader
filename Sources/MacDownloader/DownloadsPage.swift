@@ -55,8 +55,8 @@ struct DownloadsPage: View {
                     if !folders.isEmpty && search.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             SectionTitle(title: "Kategori", detail: nil)
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 196, maximum: 260), spacing: 14)],
-                                      alignment: .leading, spacing: 14) {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 14) {
                                 ForEach(folders) { folder in
                                     FolderCard(category: folder.category, items: folder.items, isSelected: false) {
                                         withAnimation(.easeInOut(duration: 0.15)) {
@@ -64,8 +64,12 @@ struct DownloadsPage: View {
                                             tab = .category
                                         }
                                     }
+                                    .frame(width: 214)
                                 }
+                                }
+                                .padding(.horizontal, 28)
                             }
+                            .padding(.horizontal, -28)
                         }
                     }
 

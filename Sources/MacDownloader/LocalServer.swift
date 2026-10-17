@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import Network
 
@@ -7,11 +8,11 @@ import Network
 /// Only requests carrying the `X-MacDL-Client` header are accepted. A normal web page can't
 /// send a custom header to another origin without a CORS preflight, which this server never
 /// approves, so random websites can't push downloads into the app.
-final class LocalServer {
+final class LocalServer: ObservableObject {
     static let shared = LocalServer()
     static let port: UInt16 = 9614
 
-    private(set) var isRunning = false
+    @Published private(set) var isRunning = false
     private var listener: NWListener?
     private let queue = DispatchQueue(label: "macdl.server")
 
@@ -23,8 +24,8 @@ final class LocalServer {
             let listener = try NWListener(using: params)
             listener.stateUpdateHandler = { [weak self] state in
                 switch state {
-                case .ready: self?.isRunning = true
-                case .failed, .cancelled: self?.isRunning = false
+                case .ready: DispatchQueue.main.async { self?.isRunning = true }
+                case .failed, .cancelled: DispatchQueue.main.async { self?.isRunning = false }
                 default: break
                 }
             }
@@ -32,7 +33,7 @@ final class LocalServer {
             listener.start(queue: queue)
             self.listener = listener
         } catch {
-            isRunning = false
+            DispatchQueue.main.async { self.isRunning = false }
         }
     }
 

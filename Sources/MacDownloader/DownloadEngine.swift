@@ -33,8 +33,24 @@ func applyHeaders(_ headers: [String: String], to request: inout URLRequest) {
     }
 }
 
-/// Asks the server for byte 0 only, to learn the size, whether ranges work and the file name.
+/// Probes with retries, since busy servers sometimes answer 429/503 or drop the first request.
 func probe(url: URL, headers: [String: String]) async throws -> ProbeResult {
+    var attempt = 0
+    while true {
+        do {
+            return try await probeOnce(url: url, headers: headers)
+        } catch DownloadError.http(let code) where (code == 429 || code == 503) && attempt < 4 {
+            attempt += 1
+        } catch let error as URLError where attempt < 3 {
+            if error.code == .cancelled { throw error }
+            attempt += 1
+        }
+        try await Task.sleep(nanoseconds: UInt64(attempt) * 2_000_000_000)
+    }
+}
+
+/// Asks the server for byte 0 only, to learn the size, whether ranges work and the file name.
+private func probeOnce(url: URL, headers: [String: String]) async throws -> ProbeResult {
     var request = URLRequest(url: url, timeoutInterval: 30)
     applyHeaders(headers, to: &request)
     request.setValue("bytes=0-0", forHTTPHeaderField: "Range")
@@ -86,6 +102,10 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
     private var stopping = false
     private var failure: String?
     private var lastStatus: Int?
+    /// Lowered when the server pushes back (HTTP 429/503) so we use fewer parallel connections.
+    private var connectionLimit: Int
+    private var throttled = Set<Int>()        // task ids rejected with 429/503
+    private var retrying = Set<Int64>()       // segment starts waiting for a retry
     private var ended = false
 
     init(url: URL, headers: [String: String], partsDir: URL, supportsRanges: Bool,
@@ -96,6 +116,7 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
         self.supportsRanges = supportsRanges
         self.segments = segments
         self.maxConnections = max(1, maxConnections)
+        connectionLimit = max(1, maxConnections)
         queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
         super.init()
@@ -210,14 +231,15 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
     /// Starts segments that are unfinished and have no connection yet.
     private func launchPending() {
         let active = Set(taskSegment.values)
-        for seg in segments where !seg.isDone && !active.contains(seg.start) && tasks.count < maxConnections {
+        for seg in segments where !seg.isDone && !active.contains(seg.start) && !retrying.contains(seg.start)
+            && tasks.count < connectionLimit {
             launch(start: seg.start)
         }
     }
 
     /// Splits the segment with the most bytes left so every connection stays busy.
     private func fillIdleConnections() {
-        while !stopping && tasks.count < maxConnections {
+        while !stopping && tasks.count < connectionLimit {
             let active = Set(taskSegment.values)
             guard let i = segments.indices
                 .filter({ active.contains(segments[$0].start) })
@@ -273,6 +295,7 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
             completionHandler(.allow)
         } else {
             lastStatus = http.statusCode
+            if http.statusCode == 429 || http.statusCode == 503 { throttled.insert(dataTask.taskIdentifier) }
             completionHandler(.cancel)
         }
     }
@@ -293,6 +316,7 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
             fail("Gagal menulis ke disk: \(error.localizedDescription)")
             return
         }
+        retries[start] = 0
         lock.lock()
         segments[i].downloaded += Int64(chunk.count)
         let done = segments[i].isDone
@@ -332,6 +356,13 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
             return
         }
 
+        // Server says "too many connections": drop this connection and keep going with the others.
+        // The segment is picked up again when another connection frees up.
+        if throttled.remove(id) != nil && !tasks.isEmpty {
+            connectionLimit = max(1, tasks.count)
+            return
+        }
+
         // Incomplete: retry with backoff.
         let attempt = retries[start, default: 0] + 1
         retries[start] = attempt
@@ -341,9 +372,16 @@ final class SegmentedDownloader: NSObject, URLSessionDataDelegate {
             fail(reason)
             return
         }
-        let delay = min(10.0, Double(attempt) * 1.5)
+        let throttledNow = lastStatus == 429 || lastStatus == 503
+        let delay = min(throttledNow ? 20.0 : 10.0, Double(attempt) * (throttledNow ? 3 : 1.5))
+        retrying.insert(start)
         DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.queue.addOperation { self?.launch(start: start) }
+            self?.queue.addOperation {
+                guard let self else { return }
+                self.retrying.remove(start)
+                guard !self.stopping, !self.taskSegment.values.contains(start) else { return }
+                self.launch(start: start)
+            }
         }
     }
 
