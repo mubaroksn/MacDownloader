@@ -31,6 +31,14 @@ Detail teknis ada di [ARCHITECTURE.md](ARCHITECTURE.md).
 2. Di browser, buka `chrome://extensions` (Edge: `edge://extensions`) dan aktifkan **Developer mode**.
 3. Klik **Load unpacked**, lalu pilih folder `ChromeExtension` yang terbuka di Finder.
 
+### Firefox
+
+1. Buka halaman **Releases** dan unduh `MacDownloader-Firefox-<versi>.xpi`.
+2. Seret file itu ke jendela Firefox (atau buka `about:addons` → ikon gerigi → **Install Add-on From File…**), lalu klik **Add**.
+3. Kalau popup ekstensi menampilkan tombol **Izinkan akses ke semua situs**, klik sekali.
+
+File `.xpi` ditandatangani Mozilla lewat CI (butuh secret `AMO_JWT_ISSUER` dan `AMO_JWT_SECRET`, kunci API gratis dari addons.mozilla.org). Tanpa itu, Release hanya berisi `MacDownloader-Firefox-<versi>.zip` yang bisa dipasang sementara lewat `about:debugging` → **Load Temporary Add-on**.
+
 App berkomunikasi dengan ekstensi melalui `127.0.0.1:9614` dan hanya bisa diakses dari Mac itu sendiri.
 
 ## Membuat rilis
@@ -58,4 +66,4 @@ Untuk mengembangkan di Xcode: buka `Package.swift` langsung (File › Open). Xco
 | `Sources/MacDownloader/System/` | Manajemen daya (IOKit, App Nap) |
 | `Sources/MacDownloader/UI/` | Tampilan SwiftUI dan menu bar |
 | `Tests/DownloadCoreTests/` | Unit test dan tes end-to-end dengan server lokal |
-| `ChromeExtension/` | Ekstensi Chromium (Manifest V3) |
+| `ChromeExtension/` | Ekstensi browser (Manifest V3) — satu sumber untuk Chromium & Firefox (`scripts/build_extensions.sh`) |

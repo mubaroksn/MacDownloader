@@ -61,6 +61,47 @@ jobs:
           fi
           exit "$status"
 
+      - name: Firefox extension (lint + sign)
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          RELEASE: ${{ github.event.inputs.release }}
+        shell: bash {0}
+        run: |
+          SRC=dist/ext/FirefoxExtension
+          npx -y web-ext@8 lint --source-dir "$SRC" --output json > lint.json 2>/dev/null
+          python3 - <<'PY'
+          import json
+          r = json.load(open("lint.json"))
+          s = r["summary"]
+          print(f"::notice title=Firefox lint::errors={s['errors']} warnings={s['warnings']} notices={s['notices']}")
+          for e in r.get("errors", []):
+              print(f"::error title=Firefox lint::{e['code']}: {e['message']} ({e.get('file','')})")
+          for w in r.get("warnings", []):
+              print(f"::warning title=Firefox lint::{w['code']}: {w['message']} ({w.get('file','')})")
+          raise SystemExit(1 if s["errors"] else 0)
+          PY
+          [ $? -eq 0 ] || exit 1
+
+          # Signing makes the add-on installable for good in normal Firefox. It needs free
+          # addons.mozilla.org API keys as repo secrets; without them the release ships the zip only.
+          if [[ -z "$RELEASE" ]]; then echo "::notice title=Firefox sign::skipped (not a release build)"; exit 0; fi
+          if [[ -z "$AMO_JWT_ISSUER" || -z "$AMO_JWT_SECRET" ]]; then
+            echo "::warning title=Firefox sign::AMO_JWT_ISSUER/AMO_JWT_SECRET not set — release has the unsigned zip only"
+            exit 0
+          fi
+          mkdir -p signed
+          npx -y web-ext@8 sign --channel unlisted --source-dir "$SRC" --artifacts-dir signed \
+            --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET" --approval-timeout 900000 2>&1 | tail -n 15 > sign.log
+          xpi=$(ls signed/*.xpi 2>/dev/null | head -n 1)
+          if [[ -n "$xpi" ]]; then
+            cp "$xpi" "dist/MacDownloader-Firefox-$VERSION.xpi"
+            echo "::notice title=Firefox sign::signed $(basename "$xpi")"
+          else
+            msg=$(sed -e 's/%/%25/g' sign.log | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=Firefox sign failed::$msg"
+          fi
+
       - name: Smoke test (launch app + real multi-connection download)
         run: |
           set -u
@@ -179,6 +220,7 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
+            dist/*.xpi
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release != ''
@@ -190,4 +232,5 @@ jobs:
           files: |
             dist/*.dmg
             dist/*.zip
+            dist/*.xpi
           generate_release_notes: true
