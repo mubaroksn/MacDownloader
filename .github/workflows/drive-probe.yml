@@ -1,0 +1,27 @@
+name: Drive probe (temporary)
+on:
+  push:
+    branches: [probe-drive]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          ID=1DSCL2GwEltXMUuVxrFOOi9h-llFo6bjL
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+          curl -sL -A "$UA" "https://drive.google.com/embeddedfolderview?id=$ID" -o e.html -w "%{http_code} %{content_type}\n"
+          wc -c e.html
+          echo "::notice title=title::$(grep -o '<title>[^<]*</title>' e.html | head -1)"
+          echo "::notice title=count::$(grep -o 'flip-entry"' e.html | wc -l) entries"
+          python3 - <<'PY'
+          import re
+          h=open('e.html',encoding='utf-8',errors='replace').read()
+          i=h.find('flip-entry')
+          snip=h[i-200:i+1800] if i>=0 else h[:2000]
+          snip=snip.replace('%','%25').replace('\n','%0A')
+          print('::notice title=snippet::'+snip)
+          hrefs=sorted(set(re.findall(r'href="([^"]+)"',h)))[:25]
+          print('::notice title=hrefs::'+' | '.join(hrefs))
+          PY
+          curl -sL -A "$UA" "https://drive.google.com/drive/folders/$ID" -o f.html -w "%{http_code}\n"
+          echo "::notice title=folderpage::$(wc -c < f.html) bytes, ivd=$(grep -c "_DRIVE_ivd" f.html)"
