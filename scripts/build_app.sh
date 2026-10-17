@@ -38,6 +38,7 @@ rm -rf "$ICONSET"
 
 echo "==> Ad-hoc signing"
 codesign --force --deep --sign - "$APP"
+codesign --verify --deep --strict --verbose=2 "$APP"
 
 echo "==> Creating DMG"
 STAGE="$OUT/dmg"
