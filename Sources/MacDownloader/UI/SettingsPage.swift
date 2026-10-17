@@ -18,7 +18,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .general: return "Folder simpan, saat login, tidur"
-        case .downloads: return "Koneksi, antrean, batas kecepatan"
+        case .downloads: return "Koneksi, antrean, kecepatan"
         case .integration: return "Ekstensi browser, clipboard"
         case .appearance: return "Tema, menu bar"
         case .about: return "Versi dan update"
