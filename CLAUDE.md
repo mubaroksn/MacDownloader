@@ -4,7 +4,7 @@ Status per 18 Okt 2026. Pemilik: mubaroksn (berkomunikasi dalam bahasa Indonesia
 
 ## Apa ini
 Download manager ala IDM untuk macOS. Native Swift/SwiftUI, SwiftPM (tanpa .xcodeproj), macOS 13+, universal.
-Repo: https://github.com/mubaroksn/wwwrap (rename dari MacDownloader; URL lama di-redirect GitHub) · Rilis terbaru: **v1.7.0**.
+Repo: https://github.com/rakitlab/wwwrap (org perusahaan rakitlab; sebelumnya mubaroksn/wwwrap dan mubaroksn/MacDownloader — URL lama di-redirect GitHub, JANGAN buat repo baru bernama sama di akun lama) · Rilis terbaru: **v1.7.0**.
 Detail arsitektur: `ARCHITECTURE.md`. Ringkasan pengguna: `README.md`.
 
 ## Yang sudah ada
@@ -25,6 +25,7 @@ Detail arsitektur: `ARCHITECTURE.md`. Ringkasan pengguna: `README.md`.
 - v1.5: `DashboardStrip`, mode kecepatan (`BandwidthLimiter`), Pengaturan di jendela utama (`UI/SettingsPage.swift`).
 - v1.6: dua bahasa. Teks Indonesia = kunci `L("...")`/`t("...")`; kamus `Localization/en.json` → `python3 scripts/l10n.py`
   (generate + cek; CI gagal kalau ada teks tanpa terjemahan). Smoke test CI dipin `-appLanguage id`.
+- Bundle id `com.mubaroksn.wwwrap` dan gecko id sengaja tetap memakai "mubaroksn" walau repo di org rakitlab.
 - v1.7: rename → wwwrap (bundle id `com.mubaroksn.wwwrap`, folder `~/Library/Application Support/wwwrap`,
   `System/LegacyMigration.swift` menyalin defaults + downloads.json lama). Protokol ekstensi (`X-MacDL-Client`, port 9614)
   dan gecko id Firefox sengaja TIDAK diganti. Auto-lanjut saat internet putus: `Downloads/NetworkWatcher.swift`
@@ -34,9 +35,9 @@ Detail arsitektur: `ARCHITECTURE.md`. Ringkasan pengguna: `README.md`.
 ## Cara kerja dari sesi Claude (penting)
 - Workspace Claude = Linux, **tidak bisa compile Swift**. Semua build/tes lewat GitHub Actions (macos-14).
 - Log Actions & artifact **tidak bisa diunduh** dari proxy. Workflow sengaja menulis hasil sebagai **annotations**
-  (`gh api repos/mubaroksn/wwwrap/check-runs/<job>/annotations`) — error compiler, hasil tes, smoke test.
+  (`gh api repos/rakitlab/wwwrap/check-runs/<job>/annotations`) — error compiler, hasil tes, smoke test.
 - Screenshot UI: step CI mem-push PNG ke branch `ci-screenshots` → `git fetch origin ci-screenshots`.
-- Rilis: `gh api -X POST repos/mubaroksn/wwwrap/actions/workflows/build.yml/dispatches -f ref=main -f 'inputs[release]=X.Y.Z'`
+- Rilis: `gh api -X POST repos/rakitlab/wwwrap/actions/workflows/build.yml/dispatches -f ref=main -f 'inputs[release]=X.Y.Z'`
   (push tag diblokir proxy). PR/merge lewat REST (`gh api .../pulls`), GraphQL diblokir. Hapus branch tidak bisa.
 - Alur biasa: branch → PR → CI hijau (tes + smoke + screenshot) → squash merge → dispatch rilis.
 - Benchmark: push ke branch `perf-*` menjalankan `.github/workflows/bench.yml`.

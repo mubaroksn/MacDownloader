@@ -342,7 +342,7 @@ jobs:
             ## Pasang
             Cara tercepat — buka Terminal, tempel, Enter:
             ```
-            curl -fsSL https://raw.githubusercontent.com/mubaroksn/wwwrap/main/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/rakitlab/wwwrap/main/install.sh | bash
             ```
             Atau unduh `.dmg` di bawah, tarik ke Applications. Saat pertama dibuka macOS akan menolak (app belum dinotarisasi Apple):
             buka **System Settings → Privacy & Security** → **Open Anyway**.
