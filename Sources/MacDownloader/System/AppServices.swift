@@ -63,7 +63,7 @@ final class UpdateChecker: ObservableObject {
 
     static let repo = "mubaroksn/MacDownloader"
     static let releasesPage = URL(string: "https://github.com/\(repo)/releases/latest")!
-    static let installCommand = "curl -fsSL https://raw.githubusercontent.com/\(repo)/main/install.sh | bash"
+    static let installCommand = "curl -fsSL https://raw.githubusercontent.com/\(repo)/main/install.sh | bash" // l10n-ignore
 
     var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
@@ -97,10 +97,10 @@ final class UpdateChecker: ObservableObject {
                 lastChecked = Date()
                 state = Self.isNewer(latest, than: currentVersion) ? .available(latest) : .upToDate
                 if case .available(let v) = state, !force {
-                    UIState.shared.flash("MacDownloader \(v) tersedia. Buka Pengaturan › Tentang untuk update.")
+                    UIState.shared.flash(L("MacDownloader %@ tersedia. Buka Pengaturan › Tentang untuk update.", v))
                 }
             } catch {
-                state = .failed("Tidak bisa menghubungi GitHub")
+                state = .failed(L("Tidak bisa menghubungi GitHub"))
             }
         }
     }
@@ -133,9 +133,9 @@ enum ThemeMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .system: return "Ikut sistem"
-        case .light: return "Terang"
-        case .dark: return "Gelap"
+        case .system: return L("Ikut sistem")
+        case .light: return L("Terang")
+        case .dark: return L("Gelap")
         }
     }
 

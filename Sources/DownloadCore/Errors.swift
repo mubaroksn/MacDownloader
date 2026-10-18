@@ -35,21 +35,22 @@ public enum DownloadEngineError: Error, Equatable, Sendable {
 extension DownloadEngineError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .httpStatus(let code): return "Server membalas HTTP \(code)"
-        case .throttled(let code): return "Server sibuk (HTTP \(code))"
-        case .remoteChanged: return "File di server berubah sejak download dimulai"
-        case .rangeNotHonored: return "Server berhenti mendukung download bertahap"
-        case .invalidResponse: return "Respons server tidak valid"
-        case .prematureEnd: return "Koneksi terputus sebelum selesai"
+        case .httpStatus(let code): return L("Server membalas HTTP %ld", code)
+        case .throttled(let code): return L("Server sibuk (HTTP %ld)", code)
+        case .remoteChanged: return L("File di server berubah sejak download dimulai")
+        case .rangeNotHonored: return L("Server berhenti mendukung download bertahap")
+        case .invalidResponse: return L("Respons server tidak valid")
+        case .prematureEnd: return L("Koneksi terputus sebelum selesai")
         case .insufficientSpace(let needed, let available):
             let f = ByteCountFormatter()
             return available >= 0
-                ? "Ruang disk tidak cukup (butuh \(f.string(fromByteCount: needed)), tersedia \(f.string(fromByteCount: available)))"
-                : "Ruang disk tidak cukup"
-        case .io(let op, let code): return "Gagal menulis file (\(op): \(String(cString: strerror(code))))"
+                ? L("Ruang disk tidak cukup (butuh %@, tersedia %@)",
+                    f.string(fromByteCount: needed), f.string(fromByteCount: available))
+                : L("Ruang disk tidak cukup")
+        case .io(let op, let code): return L("Gagal menulis file (%@: %@)", op, String(cString: strerror(code)))
         case .folderNotAccessible:
-            return "Folder Google Drive ini tidak publik. Ubah aksesnya ke \"Siapa saja yang memiliki link\", atau unduh lewat browser"
-        case .notAFile: return "Link ini membuka halaman web, bukan file. Mungkin perlu login: unduh lewat browser dengan ekstensi aktif"
+            return L("Folder Google Drive ini tidak publik. Ubah aksesnya ke \"Siapa saja yang memiliki link\", atau unduh lewat browser")
+        case .notAFile: return L("Link ini membuka halaman web, bukan file. Mungkin perlu login: unduh lewat browser dengan ekstensi aktif")
         }
     }
 }

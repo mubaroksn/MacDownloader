@@ -94,7 +94,7 @@ public enum DriveFolder {
         let truncated = token is String
 
         var title = LinkResolver.firstMatch(#"<title>([^<]*)</title>"#, in: html, group: 1).map(LinkResolver.decodeEntities)
-        if let t = title, let range = t.range(of: " - Google Drive", options: .backwards) {
+        if let t = title, let range = t.range(of: " - Google Drive", options: .backwards) { // l10n-ignore
             title = String(t[..<range.lowerBound])
         }
         return Listing(title: title?.trimmingCharacters(in: .whitespaces), entries: entries, truncated: truncated)

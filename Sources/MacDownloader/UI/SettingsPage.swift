@@ -7,21 +7,21 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "Umum"
-        case .downloads: return "Download"
-        case .integration: return "Integrasi"
-        case .appearance: return "Tampilan"
-        case .about: return "Tentang"
+        case .general: return L("Umum")
+        case .downloads: return L("Download")
+        case .integration: return L("Integrasi")
+        case .appearance: return L("Tampilan")
+        case .about: return L("Tentang")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .general: return "Folder simpan, saat login, tidur"
-        case .downloads: return "Koneksi, antrean, kecepatan"
-        case .integration: return "Ekstensi browser, clipboard"
-        case .appearance: return "Tema, menu bar"
-        case .about: return "Versi dan update"
+        case .general: return L("Folder simpan, saat login, tidur")
+        case .downloads: return L("Koneksi, antrean, kecepatan")
+        case .integration: return L("Ekstensi browser, clipboard")
+        case .appearance: return L("Bahasa, tema, menu bar")
+        case .about: return L("Versi dan update")
         }
     }
 
@@ -45,7 +45,7 @@ struct SettingsSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Pengaturan")
+                Text(L("Pengaturan"))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
@@ -287,7 +287,8 @@ struct SpeedModePicker: View {
 
     private func tooltip(for mode: SpeedMode) -> String {
         let cap = manager.limit(for: mode)
-        return mode.label + (cap == 0 ? " · tanpa batas kecepatan" : " · maksimal \(Format.speed(Double(cap))) untuk semua download")
+        return cap == 0 ? L("%@ · tanpa batas kecepatan", mode.label)
+            : L("%@ · maksimal %@ untuk semua download", mode.label, Format.speed(Double(cap)))
     }
 }
 
@@ -296,9 +297,9 @@ enum SpeedPresets {
     static let valuesKB: [Int] = [256, 512, 1024, 2048, 3072, 5120, 8192, 10240, 15360, 20480, 30720, 51200]
 
     static func label(_ kb: Int) -> String {
-        if kb < 1024 { return "\(kb) KB/s" }
+        if kb < 1024 { return "\(kb) KB/s" } // l10n-ignore
         let mb = Double(kb) / 1024
-        return mb == mb.rounded() ? "\(Int(mb)) MB/s" : String(format: "%.1f MB/s", mb)
+        return mb == mb.rounded() ? "\(Int(mb)) MB/s" : String(format: "%.1f MB/s", mb) // l10n-ignore
     }
 }
 
@@ -313,42 +314,42 @@ private struct GeneralSettings: View {
     @AppStorage(SettingsKey.preventSleep) private var preventSleep = true
 
     var body: some View {
-        SettingsGroup(title: "Simpan") {
-            SettingsRow(title: "Folder download", detail: manager.downloadFolder.path) {
+        SettingsGroup(title: L("Simpan")) {
+            SettingsRow(title: L("Folder download"), detail: manager.downloadFolder.path) {
                 HStack(spacing: 8) {
-                    Button("Buka") { NSWorkspace.shared.open(manager.downloadFolder) }
+                    Button(L("Buka")) { NSWorkspace.shared.open(manager.downloadFolder) }
                         .buttonStyle(SecondaryButtonStyle())
-                    Button("Pilih…", action: chooseFolder)
+                    Button(L("Pilih…"), action: chooseFolder)
                         .buttonStyle(SecondaryButtonStyle())
                 }
             }
-            SettingsRow(title: "Pisahkan per kategori",
-                        detail: "Video, Musik, Dokumen, dan lainnya masuk ke subfolder masing-masing.",
+            SettingsRow(title: L("Pisahkan per kategori"),
+                        detail: L("Video, Musik, Dokumen, dan lainnya masuk ke subfolder masing-masing."),
                         divider: false) {
                 SettingsToggle(isOn: $useCategoryFolders)
             }
         }
 
-        SettingsGroup(title: "Sistem") {
-            SettingsRow(title: "Buka saat login",
+        SettingsGroup(title: L("Sistem")) {
+            SettingsRow(title: L("Buka saat login"),
                         detail: login.needsApproval
-                            ? "Menunggu izin di System Settings › General › Login Items."
-                            : (login.lastError ?? "MacDownloader berjalan di latar saat Mac menyala, siap menerima download dari browser.")) {
+                            ? L("Menunggu izin di System Settings › General › Login Items.")
+                            : (login.lastError ?? L("MacDownloader berjalan di latar saat Mac menyala, siap menerima download dari browser."))) {
                 HStack(spacing: 8) {
                     if login.needsApproval {
-                        Button("Buka System Settings") { login.openSystemSettings() }
+                        Button(L("Buka System Settings")) { login.openSystemSettings() }
                             .buttonStyle(SecondaryButtonStyle())
                     }
                     SettingsToggle(isOn: Binding(get: { login.isEnabled || login.needsApproval },
                                                  set: { login.set($0) }))
                 }
             }
-            SettingsRow(title: "Cegah Mac tidur saat mengunduh",
-                        detail: "Layar tetap boleh mati. Kembali normal begitu semua download selesai.") {
+            SettingsRow(title: L("Cegah Mac tidur saat mengunduh"),
+                        detail: L("Layar tetap boleh mati. Kembali normal begitu semua download selesai.")) {
                 SettingsToggle(isOn: $preventSleep)
                     .onChange(of: preventSleep) { _ in manager.refreshSystemActivity() }
             }
-            SettingsRow(title: "Notifikasi saat selesai", detail: "Tampilkan notifikasi macOS untuk setiap file yang selesai.",
+            SettingsRow(title: L("Notifikasi saat selesai"), detail: L("Tampilkan notifikasi macOS untuk setiap file yang selesai."),
                         divider: false) {
                 SettingsToggle(isOn: $notify)
             }
@@ -377,31 +378,31 @@ private struct DownloadSettings: View {
     @AppStorage(SettingsKey.quietLimitKB) private var quietKB = SpeedMode.defaultQuietKB
 
     var body: some View {
-        SettingsGroup(title: "Koneksi") {
-            SettingsRow(title: "Koneksi awal per file",
-                        detail: "Berlaku untuk download berikutnya. 8 sudah cukup untuk kebanyakan server.") {
+        SettingsGroup(title: L("Koneksi")) {
+            SettingsRow(title: L("Koneksi awal per file"),
+                        detail: L("Berlaku untuk download berikutnya. 8 sudah cukup untuk kebanyakan server.")) {
                 ValueStepper(value: $connections, values: Array(1...32)) { "\($0)" }
             }
-            SettingsRow(title: "Tambah koneksi otomatis",
-                        detail: "Selama kecepatan masih naik, sampai 32 koneksi. Dilepas lagi kalau tidak menambah speed.") {
+            SettingsRow(title: L("Tambah koneksi otomatis"),
+                        detail: L("Selama kecepatan masih naik, sampai 32 koneksi. Dilepas lagi kalau tidak menambah speed.")) {
                 SettingsToggle(isOn: $autoScale)
             }
-            SettingsRow(title: "Download bersamaan", detail: "Sisanya menunggu di antrean.", divider: false) {
-                ValueStepper(value: $maxConcurrent, values: Array(1...10)) { "\($0) file" }
+            SettingsRow(title: L("Download bersamaan"), detail: L("Sisanya menunggu di antrean."), divider: false) {
+                ValueStepper(value: $maxConcurrent, values: Array(1...10)) { L("%ld file", $0) }
             }
         }
 
-        SettingsGroup(title: "Batas kecepatan", detail: "untuk semua download sekaligus") {
-            SettingsRow(title: "Mode sekarang",
-                        detail: "Bisa juga diganti dari halaman Download atau ikon menu bar.") {
+        SettingsGroup(title: L("Batas kecepatan"), detail: L("untuk semua download sekaligus")) {
+            SettingsRow(title: L("Mode sekarang"),
+                        detail: L("Bisa juga diganti dari halaman Download atau ikon menu bar.")) {
                 SpeedModePicker()
                     .frame(width: 300)
             }
-            SettingsRow(title: "Hemat", detail: "Sisakan bandwidth untuk video call dan streaming.") {
+            SettingsRow(title: L("Hemat"), detail: L("Sisakan bandwidth untuk video call dan streaming.")) {
                 ValueStepper(value: $saverKB, values: SpeedPresets.valuesKB, label: SpeedPresets.label)
                     .onChange(of: saverKB) { _ in manager.applySpeedLimit() }
             }
-            SettingsRow(title: "Senyap", detail: "Hampir tidak terasa, cocok saat meeting atau main game online.",
+            SettingsRow(title: L("Senyap"), detail: L("Hampir tidak terasa, cocok saat meeting atau main game online."),
                         divider: false) {
                 ValueStepper(value: $quietKB, values: SpeedPresets.valuesKB, label: SpeedPresets.label)
                     .onChange(of: quietKB) { _ in manager.applySpeedLimit() }
@@ -418,23 +419,23 @@ private struct IntegrationSettings: View {
     @AppStorage(SettingsKey.monitorClipboard) private var monitorClipboard = true
 
     var body: some View {
-        SettingsGroup(title: "Ekstensi browser") {
+        SettingsGroup(title: L("Ekstensi browser")) {
             SettingsRow(title: status.title, detail: status.detail) {
-                Button("Panduan pasang") { ui.page = .browser }
+                Button(L("Panduan pasang")) { ui.page = .browser }
                     .buttonStyle(SecondaryButtonStyle())
             }
-            SettingsRow(title: "Server lokal",
+            SettingsRow(title: L("Server lokal"),
                         detail: server.isRunning
-                            ? "Menerima download dari ekstensi di 127.0.0.1:\(String(LocalServer.port))."
-                            : "Tidak berjalan. Port \(String(LocalServer.port)) mungkin dipakai aplikasi lain.",
+                            ? L("Menerima download dari ekstensi di 127.0.0.1:%@.", String(LocalServer.port))
+                            : L("Tidak berjalan. Port %@ mungkin dipakai aplikasi lain.", String(LocalServer.port)),
                         divider: false) {
                 Circle().fill(server.isRunning ? Theme.green : Theme.red).frame(width: 8, height: 8)
             }
         }
 
-        SettingsGroup(title: "Tanpa ekstensi") {
-            SettingsRow(title: "Tawarkan download saat link disalin",
-                        detail: "Berlaku di semua browser termasuk Safari, dan di app apa pun.",
+        SettingsGroup(title: L("Tanpa ekstensi")) {
+            SettingsRow(title: L("Tawarkan download saat link disalin"),
+                        detail: L("Berlaku di semua browser termasuk Safari, dan di app apa pun."),
                         divider: false) {
                 SettingsToggle(isOn: $monitorClipboard)
                     .onChange(of: monitorClipboard) { ClipboardMonitor.shared.setEnabled($0) }
@@ -444,10 +445,10 @@ private struct IntegrationSettings: View {
 
     private var status: (title: String, detail: String) {
         if server.extensionConnected {
-            return ("Ekstensi terhubung" + (server.extensionBrowser.map { " · \($0)" } ?? ""),
-                    "Download di browser otomatis diambil alih MacDownloader.")
+            return (L("Ekstensi terhubung") + (server.extensionBrowser.map { " · \($0)" } ?? ""),
+                    L("Download di browser otomatis diambil alih MacDownloader."))
         }
-        return ("Ekstensi belum terhubung", "Pasang untuk Chrome, Edge, Brave, Arc, Dia, atau Firefox.")
+        return (L("Ekstensi belum terhubung"), L("Pasang untuk Chrome, Edge, Brave, Arc, Dia, atau Firefox."))
     }
 }
 
@@ -456,10 +457,22 @@ private struct IntegrationSettings: View {
 private struct AppearanceSettings: View {
     @AppStorage(SettingsKey.themeMode) private var themeMode = ThemeMode.system.rawValue
     @AppStorage(SettingsKey.showMenuBar) private var showMenuBar = true
+    @AppStorage(Lang.key) private var language = AppLanguage.system.rawValue
 
     var body: some View {
-        SettingsGroup(title: "Tema") {
-            SettingsRow(title: "Tampilan", detail: "Ikut sistem berganti otomatis bersama mode gelap macOS.",
+        SettingsGroup(title: L("Bahasa")) {
+            SettingsRow(title: L("Bahasa aplikasi"),
+                        detail: L("Ikut sistem memakai bahasa Indonesia kalau macOS berbahasa Indonesia, selain itu English. Berlaku juga untuk ekstensi browser."),
+                        divider: false) {
+                SegmentedSwitch(selection: Binding(get: { AppLanguage(rawValue: language) ?? .system },
+                                                   set: { choose($0) }),
+                                options: AppLanguage.allCases.map { ($0, $0.label) })
+                    .frame(width: 300)
+            }
+        }
+
+        SettingsGroup(title: L("Tema")) {
+            SettingsRow(title: L("Tampilan"), detail: L("Ikut sistem berganti otomatis bersama mode gelap macOS."),
                         divider: false) {
                 SegmentedSwitch(selection: Binding(get: { ThemeMode(rawValue: themeMode) ?? .system },
                                                    set: { themeMode = $0.rawValue; $0.apply() }),
@@ -468,13 +481,21 @@ private struct AppearanceSettings: View {
             }
         }
 
-        SettingsGroup(title: "Menu bar") {
-            SettingsRow(title: "Tampilkan ikon di menu bar",
-                        detail: "Lihat progres, ganti mode kecepatan, dan jeda semua tanpa membuka jendela.",
+        SettingsGroup(title: L("Menu bar")) {
+            SettingsRow(title: L("Tampilkan ikon di menu bar"),
+                        detail: L("Lihat progres, ganti mode kecepatan, dan jeda semua tanpa membuka jendela."),
                         divider: false) {
                 SettingsToggle(isOn: $showMenuBar)
             }
         }
+    }
+
+    /// Every view is rebuilt with the new language (App's `.id`); the notification buttons
+    /// are registered with the system, so they are re-registered here.
+    @MainActor
+    private func choose(_ choice: AppLanguage) {
+        language = choice.rawValue
+        LinkOffer.registerCategories()
     }
 }
 
@@ -497,7 +518,7 @@ private struct AboutSettings: View {
                 Text("MacDownloader")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Versi \(updates.currentVersion)" + (updates.currentBuild.isEmpty ? "" : " (\(updates.currentBuild))"))
+                Text(L("Versi %@", updates.currentVersion) + (updates.currentBuild.isEmpty ? "" : " (\(updates.currentBuild))"))
                     .font(.system(size: 13))
                     .monospacedDigit()
                     .foregroundStyle(Theme.textSecondary)
@@ -505,7 +526,7 @@ private struct AboutSettings: View {
             Spacer()
         }
 
-        SettingsGroup(title: "Update") {
+        SettingsGroup(title: L("Update")) {
             SettingsRow(title: statusTitle, detail: statusDetail) {
                 Button {
                     updates.check(force: true)
@@ -513,34 +534,34 @@ private struct AboutSettings: View {
                     if updates.state == .checking {
                         ProgressView().controlSize(.small).frame(width: 60)
                     } else {
-                        Text("Cek sekarang")
+                        Text(L("Cek sekarang"))
                     }
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(updates.state == .checking)
             }
             if let version = updates.availableVersion {
-                SettingsRow(title: "Pasang versi \(version)",
-                            detail: "Tempel perintah ini di Terminal. App akan ditutup, diganti, lalu dibuka lagi.") {
+                SettingsRow(title: L("Pasang versi %@", version),
+                            detail: L("Tempel perintah ini di Terminal. App akan ditutup, diganti, lalu dibuka lagi.")) {
                     HStack(spacing: 8) {
-                        Button(copied ? "Tersalin" : "Salin perintah") {
+                        Button(copied ? L("Tersalin") : L("Salin perintah")) {
                             updates.copyInstallCommand()
                             copied = true
                         }
                         .buttonStyle(PrimaryButtonStyle())
-                        Button("Halaman rilis") { updates.openReleasesPage() }
+                        Button(L("Halaman rilis")) { updates.openReleasesPage() }
                             .buttonStyle(SecondaryButtonStyle())
                     }
                 }
             }
-            SettingsRow(title: "Cek update otomatis", detail: "Sekali sehari saat app dibuka.", divider: false) {
+            SettingsRow(title: L("Cek update otomatis"), detail: L("Sekali sehari saat app dibuka."), divider: false) {
                 SettingsToggle(isOn: $autoCheck)
             }
         }
 
-        SettingsGroup(title: "Proyek") {
-            SettingsRow(title: "Kode sumber dan rilis", detail: "github.com/\(UpdateChecker.repo)", divider: false) {
-                Button("Buka GitHub") { NSWorkspace.shared.open(URL(string: "https://github.com/\(UpdateChecker.repo)")!) }
+        SettingsGroup(title: L("Proyek")) {
+            SettingsRow(title: L("Kode sumber dan rilis"), detail: "github.com/\(UpdateChecker.repo)", divider: false) { // l10n-ignore
+                Button(L("Buka GitHub")) { NSWorkspace.shared.open(URL(string: "https://github.com/\(UpdateChecker.repo)")!) }
                     .buttonStyle(SecondaryButtonStyle())
             }
         }
@@ -548,16 +569,16 @@ private struct AboutSettings: View {
 
     private var statusTitle: String {
         switch updates.state {
-        case .idle: return "Belum dicek"
-        case .checking: return "Mengecek…"
-        case .upToDate: return "Sudah versi terbaru"
-        case .available(let v): return "Versi \(v) tersedia"
+        case .idle: return L("Belum dicek")
+        case .checking: return L("Mengecek…")
+        case .upToDate: return L("Sudah versi terbaru")
+        case .available(let v): return L("Versi %@ tersedia", v)
         case .failed(let message): return message
         }
     }
 
     private var statusDetail: String {
-        guard let date = updates.lastChecked else { return "Rilis baru diambil dari GitHub." }
-        return "Terakhir dicek \(date.formatted(date: .omitted, time: .shortened))."
+        guard let date = updates.lastChecked else { return L("Rilis baru diambil dari GitHub.") }
+        return L("Terakhir dicek %@.", date.formatted(date: .omitted, time: .shortened))
     }
 }

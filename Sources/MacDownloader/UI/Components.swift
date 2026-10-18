@@ -80,7 +80,7 @@ struct SecondaryButtonStyle: ButtonStyle {
 struct CountBadge: View {
     let count: Int
     var body: some View {
-        Text("\(count)")
+        Text("\(count)") // l10n-ignore
             .font(.system(size: 11.5, weight: .medium))
             .monospacedDigit()
             .foregroundStyle(Theme.textPrimary)
@@ -239,7 +239,7 @@ struct ClipboardOfferBanner: View {
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.border))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Link download tersalin")
+                Text(L("Link download tersalin"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Theme.textPrimary)
                 Text(LinkOffer.displayName(for: url))
@@ -251,7 +251,7 @@ struct ClipboardOfferBanner: View {
             Spacer(minLength: 8)
             Button { LinkOffer.dismiss() } label: { Image(systemName: "xmark") }
                 .buttonStyle(IconButtonStyle(iconSize: 11))
-                .help("Abaikan")
+                .help(L("Abaikan"))
             Button("Download") { LinkOffer.accept(url) }
                 .buttonStyle(PrimaryButtonStyle())
         }

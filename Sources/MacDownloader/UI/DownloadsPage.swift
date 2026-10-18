@@ -2,8 +2,16 @@ import AppKit
 import SwiftUI
 
 enum SortOrder: String, CaseIterable, Identifiable {
-    case newest = "Terbaru", name = "Nama", size = "Ukuran"
+    case newest = "Terbaru", name = "Nama", size = "Ukuran" // l10n-ignore (stored values; see label)
     var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .newest: return L("Terbaru")
+        case .name: return L("Nama")
+        case .size: return L("Ukuran")
+        }
+    }
 }
 
 struct DownloadsPage: View {
@@ -73,7 +81,7 @@ struct DownloadsPage: View {
                     }
                     if !folders.isEmpty && search.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
-                            SectionTitle(title: "Kategori", detail: nil)
+                            SectionTitle(title: L("Kategori"), detail: nil)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 14) {
                                 ForEach(folders) { folder in
@@ -93,7 +101,7 @@ struct DownloadsPage: View {
                     }
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "File", detail: visibleItems.isEmpty ? nil : "\(visibleItems.count)")
+                        SectionTitle(title: L("File"), detail: visibleItems.isEmpty ? nil : "\(visibleItems.count)")
                         FileTable(items: visibleItems, selection: $selection, onDelete: onDelete)
                     }
                 }
@@ -110,7 +118,7 @@ struct DownloadsPage: View {
                     withAnimation(.easeInOut(duration: 0.2)) { sidebarVisible = true }
                 } label: { Image(systemName: "sidebar.left") }
                     .buttonStyle(IconButtonStyle())
-                    .help("Tampilkan panel")
+                    .help(L("Tampilkan panel"))
             }
 
             Menu {
@@ -139,14 +147,14 @@ struct DownloadsPage: View {
             Spacer()
 
             Menu {
-                Picker("Urutkan", selection: $sort) {
-                    ForEach(SortOrder.allCases) { Text($0.rawValue).tag($0) }
+                Picker(L("Urutkan"), selection: $sort) {
+                    ForEach(SortOrder.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.inline)
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .semibold))
-                    Text(sort.rawValue)
+                    Text(sort.label)
                 }
             }
             .menuStyle(.button)
@@ -157,14 +165,14 @@ struct DownloadsPage: View {
             let canResume = manager.items.contains { [.paused, .failed].contains($0.status) }
             let canPause = manager.items.contains { [.downloading, .queued].contains($0.status) }
             if canPause {
-                Button { manager.pauseAll() } label: { Label("Jeda semua", systemImage: "pause.fill") }
+                Button { manager.pauseAll() } label: { Label(L("Jeda semua"), systemImage: "pause.fill") }
                     .buttonStyle(SecondaryButtonStyle())
             } else if canResume {
-                Button { manager.resumeAll() } label: { Label("Lanjutkan semua", systemImage: "play.fill") }
+                Button { manager.resumeAll() } label: { Label(L("Lanjutkan semua"), systemImage: "play.fill") }
                     .buttonStyle(SecondaryButtonStyle())
             }
 
-            Button { ui.showAddSheet = true } label: { Label("Tambah", systemImage: "plus") }
+            Button { ui.showAddSheet = true } label: { Label(L("Tambah"), systemImage: "plus") }
                 .buttonStyle(PrimaryButtonStyle())
         }
         .labelStyle(CompactLabelStyle())
@@ -217,10 +225,10 @@ struct FileTable: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: Col.spacing) {
-                Text("Nama").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Ukuran").frame(width: Col.size, alignment: .leading)
-                Text("Progres").frame(width: Col.progress, alignment: .leading)
-                Text("Status").frame(width: Col.status, alignment: .leading)
+                Text(L("Nama")).frame(maxWidth: .infinity, alignment: .leading)
+                Text(L("Ukuran")).frame(width: Col.size, alignment: .leading)
+                Text(L("Progres")).frame(width: Col.progress, alignment: .leading)
+                Text(L("Status")).frame(width: Col.status, alignment: .leading)
                 Color.clear.frame(width: Col.actions, height: 1)
             }
             .font(.system(size: 12.5, weight: .medium))
@@ -235,10 +243,10 @@ struct FileTable: View {
                     Image(systemName: "arrow.down.circle")
                         .font(.system(size: 30, weight: .light))
                         .foregroundStyle(Theme.textTertiary)
-                    Text("Belum ada download")
+                    Text(L("Belum ada download"))
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("Klik Tambah atau tekan ⌘N, tarik link ke jendela ini,\natau unduh dari browser lewat ekstensi.")
+                    Text(L("Klik Tambah atau tekan ⌘N, tarik link ke jendela ini,\natau unduh dari browser lewat ekstensi."))
                         .font(.system(size: 12.5))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Theme.textSecondary)
@@ -331,13 +339,13 @@ struct FileRow: View {
                         Text(error).foregroundStyle(Theme.red)
                     } else if item.status == .downloading && !item.supportsRanges && !item.segments.isEmpty {
                         // Server allows only one connection: the most common reason for "slow".
-                        Text("1 koneksi · server tidak mendukung multi-koneksi")
+                        Text(L("1 koneksi · server tidak mendukung multi-koneksi"))
                             .foregroundStyle(Theme.orange)
                             .help((item.url.host ?? "").contains("takeout")
-                                  ? "ZIP folder Google Drive hanya bisa 1 koneksi. Lebih cepat: salin link folder Drive-nya, MacDownloader akan mengunduh semua file secara paralel."
-                                  : "Server ini tidak mengizinkan download bertahap, jadi kecepatannya terbatas satu koneksi.")
+                                  ? L("ZIP folder Google Drive hanya bisa 1 koneksi. Lebih cepat: salin link folder Drive-nya, MacDownloader akan mengunduh semua file secara paralel.")
+                                  : L("Server ini tidak mengizinkan download bertahap, jadi kecepatannya terbatas satu koneksi."))
                     } else if item.status == .downloading && item.activeConnections > 0 {
-                        Text("\(item.activeConnections) koneksi · \(item.url.host ?? "")")
+                        Text(L("%ld koneksi · %@", item.activeConnections, item.url.host ?? ""))
                             .foregroundStyle(Theme.textSecondary)
                     } else {
                         Text(item.url.host ?? "").foregroundStyle(Theme.textSecondary)
@@ -355,17 +363,17 @@ struct FileRow: View {
             ProgressBar(value: value, color: item.status.color)
             HStack(spacing: 4) {
                 if item.status == .downloading && item.segments.isEmpty {
-                    Text("Menghubungkan…")
+                    Text(L("Menghubungkan…"))
                 } else if item.status == .downloading {
                     Text(Format.bytes(item.downloadedBytes)).foregroundStyle(Theme.textPrimary)
-                    if item.speed >= 1 { Text("· \(Format.speed(item.speed))") }
-                    if let eta = item.eta { Text("· \(Format.duration(eta))") }
+                    if item.speed >= 1 { Text("· \(Format.speed(item.speed))") } // l10n-ignore
+                    if let eta = item.eta { Text("· \(Format.duration(eta))") } // l10n-ignore
                 } else if item.totalBytes > 0 {
-                    Text("\(Int(value * 100))%").foregroundStyle(Theme.textPrimary)
+                    Text("\(Int(value * 100))%").foregroundStyle(Theme.textPrimary) // l10n-ignore
                     if item.status == .completed, let date = item.completedAt {
-                        Text("· \(date.formatted(date: .numeric, time: .shortened))")
+                        Text("· \(date.formatted(date: .numeric, time: .shortened))") // l10n-ignore
                     } else if item.downloadedBytes > 0 {
-                        Text("· \(Format.bytes(item.downloadedBytes))")
+                        Text("· \(Format.bytes(item.downloadedBytes))") // l10n-ignore
                     }
                 } else {
                     Text(Format.bytes(item.downloadedBytes)).foregroundStyle(Theme.textPrimary)
@@ -383,13 +391,13 @@ struct FileRow: View {
             switch item.status {
             case .downloading, .queued:
                 Button { manager.pause([item.id]) } label: { Image(systemName: "pause.fill") }
-                    .buttonStyle(IconButtonStyle(iconSize: 12)).help("Jeda")
+                    .buttonStyle(IconButtonStyle(iconSize: 12)).help(L("Jeda"))
             case .paused, .failed:
                 Button { manager.resume([item.id]) } label: { Image(systemName: "play.fill") }
-                    .buttonStyle(IconButtonStyle(iconSize: 12)).help("Lanjutkan")
+                    .buttonStyle(IconButtonStyle(iconSize: 12)).help(L("Lanjutkan"))
             case .completed:
                 Button { Finder.reveal(item) } label: { Image(systemName: "magnifyingglass") }
-                    .buttonStyle(IconButtonStyle(iconSize: 13)).help("Tampilkan di Finder")
+                    .buttonStyle(IconButtonStyle(iconSize: 13)).help(L("Tampilkan di Finder"))
             }
             Menu {
                 RowMenuItems(ids: targets, onDelete: onDelete)
@@ -417,24 +425,24 @@ struct RowMenuItems: View {
     var body: some View {
         let items = manager.items.filter { ids.contains($0.id) }
         if items.contains(where: { [.paused, .failed].contains($0.status) }) {
-            Button("Lanjutkan") { manager.resume(ids) }
+            Button(L("Lanjutkan")) { manager.resume(ids) }
         }
         if items.contains(where: { [.downloading, .queued].contains($0.status) }) {
-            Button("Jeda") { manager.pause(ids) }
+            Button(L("Jeda")) { manager.pause(ids) }
         }
         if items.count == 1, let item = items.first, item.status == .completed {
-            Button("Buka") { Finder.open(item) }
-            Button("Tampilkan di Finder") { Finder.reveal(item) }
+            Button(L("Buka")) { Finder.open(item) }
+            Button(L("Tampilkan di Finder")) { Finder.reveal(item) }
         }
         if items.contains(where: { [.paused, .failed].contains($0.status) }) {
-            Button("Ulang dari awal") { manager.restart(ids) }
+            Button(L("Ulang dari awal")) { manager.restart(ids) }
         }
         Divider()
-        Button("Salin link") {
+        Button(L("Salin link")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(items.map(\.url.absoluteString).joined(separator: "\n"), forType: .string)
         }
         Divider()
-        Button(items.count > 1 ? "Hapus \(items.count) item…" : "Hapus…", role: .destructive) { onDelete(ids) }
+        Button(items.count > 1 ? L("Hapus %ld item…", items.count) : L("Hapus…"), role: .destructive) { onDelete(ids) }
     }
 }

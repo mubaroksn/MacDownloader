@@ -139,7 +139,7 @@ struct FolderCard: View {
                     Text(category.label)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Theme.textPrimary)
-                    Text(totalBytes > 0 ? "\(items.count) file · \(Format.bytes(totalBytes))" : "\(items.count) file")
+                    Text(totalBytes > 0 ? L("%ld file · %@", items.count, Format.bytes(totalBytes)) : L("%ld file", items.count))
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                 }

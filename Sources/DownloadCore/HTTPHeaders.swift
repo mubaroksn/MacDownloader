@@ -2,7 +2,7 @@ import Foundation
 
 public enum HTTPHeaders {
     public static let defaultUserAgent =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15" // l10n-ignore
 
     /// Headers the engine owns; callers (browser extensions) may not override them.
     private static let reserved: Set<String> = [

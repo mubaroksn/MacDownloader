@@ -40,7 +40,7 @@ struct MenuBarPanel: View {
                     Image(systemName: "cup.and.saucer.fill")
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
-                        .help("Mac dicegah tidur selama download berjalan")
+                        .help(L("Mac dicegah tidur selama download berjalan"))
                 }
             }
             .padding(14)
@@ -54,7 +54,7 @@ struct MenuBarPanel: View {
             }
 
             if visible.isEmpty {
-                Text("Belum ada download")
+                Text(L("Belum ada download"))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity)
@@ -71,7 +71,7 @@ struct MenuBarPanel: View {
             Hairline()
 
             HStack(spacing: 10) {
-                Text("Kecepatan")
+                Text(L("Kecepatan"))
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
                 SpeedModePicker(compact: true)
@@ -83,10 +83,10 @@ struct MenuBarPanel: View {
 
             HStack(spacing: 8) {
                 if manager.items.contains(where: { [.downloading, .queued].contains($0.status) }) {
-                    Button { manager.pauseAll() } label: { Label("Jeda semua", systemImage: "pause.fill") }
+                    Button { manager.pauseAll() } label: { Label(L("Jeda semua"), systemImage: "pause.fill") }
                         .buttonStyle(SecondaryButtonStyle())
                 } else if manager.items.contains(where: { [.paused, .failed].contains($0.status) }) {
-                    Button { manager.resumeAll() } label: { Label("Lanjutkan", systemImage: "play.fill") }
+                    Button { manager.resumeAll() } label: { Label(L("Lanjutkan"), systemImage: "play.fill") }
                         .buttonStyle(SecondaryButtonStyle())
                 }
                 Spacer()
@@ -95,8 +95,8 @@ struct MenuBarPanel: View {
                     ui.showAddSheet = true
                 } label: { Image(systemName: "plus") }
                     .buttonStyle(IconButtonStyle())
-                    .help("Tambah download")
-                Button("Buka") { showMainWindow() }
+                    .help(L("Tambah download"))
+                Button(L("Buka")) { showMainWindow() }
                     .buttonStyle(PrimaryButtonStyle())
             }
             .labelStyle(CompactLabelStyle())
@@ -108,9 +108,9 @@ struct MenuBarPanel: View {
 
     private var summary: String {
         let active = manager.activeCount
-        if active == 0 { return "Tidak ada download aktif" }
+        if active == 0 { return L("Tidak ada download aktif") }
         let speed = Format.speed(manager.totalSpeed)
-        return speed.isEmpty ? "\(active) sedang mengunduh" : "\(active) sedang mengunduh · \(speed)"
+        return speed.isEmpty ? L("%ld sedang mengunduh", active) : L("%ld sedang mengunduh · %@", active, speed)
     }
 
     private func showMainWindow() {
@@ -138,7 +138,7 @@ private struct MenuBarRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if item.status == .completed || item.status == .failed {
-                    Text(item.status == .failed ? (item.errorMessage ?? "Gagal") : "Selesai · \(Format.bytes(item.totalBytes))")
+                    Text(item.status == .failed ? (item.errorMessage ?? L("Gagal")) : L("Selesai · %@", Format.bytes(item.totalBytes)))
                         .font(.system(size: 11))
                         .foregroundStyle(item.status == .failed ? Theme.red : Theme.textSecondary)
                         .lineLimit(1)
@@ -173,12 +173,12 @@ private struct MenuBarRow: View {
     private var detail: String {
         switch item.status {
         case .downloading:
-            var parts = ["\(Int(item.progress * 100))%"]
+            var parts = ["\(Int(item.progress * 100))%"] // l10n-ignore
             if item.speed >= 1 { parts.append(Format.speed(item.speed)) }
             if let eta = item.eta { parts.append(Format.duration(eta)) }
             return parts.joined(separator: " · ")
-        case .queued: return "Antri"
-        case .paused: return "Dijeda · \(Int(item.progress * 100))%"
+        case .queued: return L("Antri")
+        case .paused: return L("Dijeda · %ld%%", Int(item.progress * 100))
         default: return ""
         }
     }

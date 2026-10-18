@@ -7,34 +7,48 @@ struct MacDownloaderApp: App {
     @StateObject private var manager = DownloadManager.shared
     @StateObject private var ui = UIState.shared
     @AppStorage(SettingsKey.showMenuBar) private var showMenuBar = true
+    /// Changing the language rebuilds every view (see `.id` below), so text switches without a restart.
+    @AppStorage(Lang.key) private var appLanguage = ""
+
+    init() {
+        let state = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MacDownloader/downloads.json")
+        let defaults = UserDefaults.standard
+        let existing = FileManager.default.fileExists(atPath: state.path)
+            || [SettingsKey.statsDay, SettingsKey.connections, SettingsKey.speedMode, "sortOrder"]
+                .contains { defaults.object(forKey: $0) != nil }
+        Lang.migrate(existingInstall: existing)
+        Lang.installEngineHook()
+    }
 
     var body: some Scene {
         WindowGroup("MacDownloader", id: MacDownloaderApp.mainWindowID) {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(ui)
+                .id(appLanguage)
                 .frame(minWidth: 1000, minHeight: 600)
         }
         .defaultSize(width: 1240, height: 780)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Tambah Download…") { ui.showAddSheet = true }
+                Button(L("Tambah Download…")) { ui.showAddSheet = true }
                     .keyboardShortcut("n")
             }
             CommandGroup(replacing: .appSettings) {
                 OpenSettingsCommand()
             }
             CommandMenu("Download") {
-                Button("Lanjutkan Semua") { manager.resumeAll() }
+                Button(L("Lanjutkan Semua")) { manager.resumeAll() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
-                Button("Jeda Semua") { manager.pauseAll() }
+                Button(L("Jeda Semua")) { manager.pauseAll() }
                     .keyboardShortcut("p", modifiers: [.command, .shift])
                 Divider()
-                Picker("Kecepatan", selection: $manager.speedMode) {
+                Picker(L("Kecepatan"), selection: $manager.speedMode) {
                     ForEach(SpeedMode.allCases) { Text($0.label).tag($0) }
                 }
                 Divider()
-                Button("Bersihkan yang Selesai") { manager.removeCompleted() }
+                Button(L("Bersihkan yang Selesai")) { manager.removeCompleted() }
             }
         }
 
@@ -42,6 +56,7 @@ struct MacDownloaderApp: App {
             MenuBarPanel()
                 .environmentObject(manager)
                 .environmentObject(ui)
+                .id(appLanguage)
         } label: {
             MenuBarIcon(active: manager.activeCount > 0)
         }
@@ -56,7 +71,7 @@ private struct OpenSettingsCommand: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("Pengaturan…") {
+        Button(L("Pengaturan…")) {
             UIState.shared.openSettings()
             MainWindow.show { openWindow(id: MacDownloaderApp.mainWindowID) }
         }
@@ -166,7 +181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.frame.width > 400 }),
               let view = window.contentView?.superview ?? window.contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
-            FileHandle.standardError.write(Data("snapshot: no window\n".utf8))
+            FileHandle.standardError.write(Data("snapshot: no window\n".utf8)) // l10n-ignore
             return
         }
         view.cacheDisplay(in: view.bounds, to: rep)

@@ -1,3 +1,11 @@
+// Static text is marked data-i18n in popup.html; its Indonesian content is the key.
+loadLang().then(() => {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.textContent.trim());
+  });
+});
+
 const dot = document.getElementById("dot");
 const text = document.getElementById("text");
 const enabled = document.getElementById("enabled");
@@ -7,7 +15,9 @@ chrome.runtime.sendMessage({ type: "status" }, (res) => {
   if (document.getElementById("grant").style.display === "block") return; // permission message wins
   const alive = !!res?.alive;
   dot.className = "dot " + (alive ? "on" : "off");
-  text.textContent = alive ? "Aplikasi terhubung" : "Aplikasi tidak berjalan";
+  loadLang().then(() => {
+    text.textContent = alive ? t("Aplikasi terhubung") : t("Aplikasi tidak berjalan");
+  });
 });
 
 chrome.storage.local.get(["enabled", "minSizeMB"], (s) => {
@@ -27,7 +37,7 @@ const ALL = { origins: ["<all_urls>"] };
 chrome.permissions.contains(ALL, (has) => {
   if (has) return;
   grant.style.display = "block";
-  text.textContent = "Butuh izin akses situs";
+  loadLang().then(() => { text.textContent = t("Butuh izin akses situs"); });
   dot.className = "dot off";
 });
 grant.addEventListener("click", () => {

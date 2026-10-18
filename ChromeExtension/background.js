@@ -6,6 +6,12 @@
 //   2. ask the app to take over; the app resolves and probes the link first,
 //   3. app accepted  -> cancel + erase it in the browser,
 //      app refused   -> resume it in the browser (one-time links, POST forms, login pages…).
+// Chrome runs this file alone as a service worker; Firefox loads the helpers via the manifest.
+if (typeof importScripts === "function" && typeof STRINGS_EN === "undefined") {
+  importScripts("strings.js", "i18n.js");
+}
+const langReady = loadLang();
+
 const API = "http://127.0.0.1:9614";
 const CLIENT = { "X-MacDL-Client": "chrome-extension" };
 const HANDOFF_TIMEOUT_MS = 25000;
@@ -40,14 +46,24 @@ async function post(path, body, timeoutMs = 3000) {
   return res.json().catch(() => ({}));
 }
 
-// Heartbeat so the app can show "extension connected" truthfully.
+// Heartbeat so the app can show "extension connected" truthfully. The reply carries the
+// app's language, which the extension follows.
 async function hello() {
   try {
-    await post("/hello", { browser: browserName(), version: chrome.runtime.getManifest().version }, 1500);
+    const res = await post("/hello", { browser: browserName(), version: chrome.runtime.getManifest().version }, 1500);
+    if (res && (res.lang === "id" || res.lang === "en")) await followAppLanguage(res.lang);
     return true;
   } catch {
     return false;
   }
+}
+
+async function followAppLanguage(lang) {
+  const { appLang } = await chrome.storage.local.get("appLang");
+  LANG = lang;
+  if (appLang === lang) return;
+  await chrome.storage.local.set({ appLang: lang });
+  createMenu();
 }
 
 // storeId: Firefox containers/private windows keep their own cookie jar (item.cookieStoreId).
@@ -114,14 +130,19 @@ function flashBadge(text, color) {
   setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2500);
 }
 
-function setup() {
+function createMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "macdl-link",
-      title: "Download dengan MacDownloader",
+      title: t("Download dengan MacDownloader"),
       contexts: ["link", "video", "audio", "image"],
     });
   });
+}
+
+async function setup() {
+  await langReady;
+  createMenu();
   chrome.alarms.create("macdl-heartbeat", { periodInMinutes: 0.5 });
   hello();
 }

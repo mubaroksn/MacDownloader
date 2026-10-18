@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "MacDownloader",
   "version": "1.2.0",
-  "description": "Kirim download dari browser (Chrome, Edge, Brave, Arc, Dia) ke aplikasi MacDownloader.",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
   "permissions": [
     "downloads",
     "contextMenus",

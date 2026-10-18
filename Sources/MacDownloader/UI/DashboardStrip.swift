@@ -9,14 +9,14 @@ struct DashboardStrip: View {
         HStack(alignment: .top, spacing: 14) {
             SpeedCard()
                 .frame(maxWidth: .infinity)
-            StatCard(title: "Aktif",
+            StatCard(title: L("Aktif"),
                      value: "\(manager.activeCount)",
                      detail: activeDetail)
                 .frame(width: 176)
-            StatCard(title: "Hari ini",
+            StatCard(title: L("Hari ini"),
                      value: manager.todayBytes > 0 ? Format.bytes(manager.todayBytes) : "0 MB",
-                     detail: manager.completedTodayCount == 0 ? "Belum ada file selesai"
-                         : "\(manager.completedTodayCount) file selesai")
+                     detail: manager.completedTodayCount == 0 ? L("Belum ada file selesai")
+                         : L("%ld file selesai", manager.completedTodayCount))
                 .frame(width: 176)
         }
         .frame(height: 124)
@@ -24,9 +24,9 @@ struct DashboardStrip: View {
 
     private var activeDetail: String {
         var parts: [String] = []
-        if manager.queuedCount > 0 { parts.append("\(manager.queuedCount) antre") }
-        if manager.pausedCount > 0 { parts.append("\(manager.pausedCount) dijeda") }
-        return parts.isEmpty ? "Tidak ada antrean" : parts.joined(separator: " · ")
+        if manager.queuedCount > 0 { parts.append(L("%ld antre", manager.queuedCount)) }
+        if manager.pausedCount > 0 { parts.append(L("%ld dijeda", manager.pausedCount)) }
+        return parts.isEmpty ? L("Tidak ada antrean") : parts.joined(separator: " · ")
     }
 }
 
@@ -74,7 +74,7 @@ private struct SpeedCard: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Text("Kecepatan")
+                    Text(L("Kecepatan"))
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer(minLength: 8)
@@ -88,12 +88,12 @@ private struct SpeedCard: View {
                         .monospacedDigit()
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                    Text(cap > 0 ? "batas \(Format.speed(Double(cap)))" : "tanpa batas")
+                    Text(cap > 0 ? L("batas %@", Format.speed(Double(cap))) : L("tanpa batas"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
-                Text(manager.activeCount > 0 ? "\(totalConnections) koneksi terbuka" : "Diam")
+                Text(manager.activeCount > 0 ? L("%ld koneksi terbuka", totalConnections) : L("Diam"))
                     .font(.system(size: 11.5))
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)

@@ -22,7 +22,7 @@ final class LocalServer: ObservableObject {
     @Published private(set) var extensionBrowser: String?
     private var staleWork: DispatchWorkItem?
     private var listener: NWListener?
-    private let queue = DispatchQueue(label: "macdl.server")
+    private let queue = DispatchQueue(label: "macdl.server") // l10n-ignore
 
     func start() {
         do {
@@ -73,7 +73,7 @@ final class LocalServer: ObservableObject {
         let fromExtension = origin.isEmpty || origin.hasPrefix("chrome-extension://")
             || origin.hasPrefix("moz-extension://") || origin.hasPrefix("safari-web-extension://")
         guard request.headers["x-macdl-client"] != nil, fromExtension else {
-            send(conn, status: "403 Forbidden", json: ["ok": false])
+            send(conn, status: "403 Forbidden", json: ["ok": false]) // l10n-ignore
             return
         }
 
@@ -83,11 +83,11 @@ final class LocalServer: ObservableObject {
         case ("POST", "/hello"):
             let obj = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any]
             markExtensionSeen(browser: obj?["browser"] as? String)
-            send(conn, status: "200 OK", json: ["ok": true, "app": "MacDownloader", "version": 2])
+            send(conn, status: "200 OK", json: ["ok": true, "app": "MacDownloader", "version": 2, "lang": Lang.code])
         case ("POST", "/add"):
             guard let obj = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any],
                   let url = obj["url"] as? String else {
-                send(conn, status: "400 Bad Request", json: ["ok": false, "error": "url wajib diisi"])
+                send(conn, status: "400 Bad Request", json: ["ok": false, "error": "url wajib diisi"]) // l10n-ignore // l10n-ignore (API reply for the extension, never shown)
                 return
             }
             let filename = (obj["filename"] as? String).flatMap { $0.isEmpty ? nil : $0 }
@@ -97,7 +97,7 @@ final class LocalServer: ObservableObject {
                                                  cookie: obj["cookie"] as? String,
                                                  userAgent: obj["userAgent"] as? String,
                                                  origin: .browserExtension) else {
-                send(conn, status: "400 Bad Request", json: ["ok": false, "error": "url tidak valid"])
+                send(conn, status: "400 Bad Request", json: ["ok": false, "error": "url tidak valid"]) // l10n-ignore // l10n-ignore (API reply for the extension, never shown)
                 return
             }
             guard obj["handoff"] as? Bool == true else {
@@ -126,7 +126,7 @@ final class LocalServer: ObservableObject {
                 }
             }
         default:
-            send(conn, status: "404 Not Found", json: ["ok": false])
+            send(conn, status: "404 Not Found", json: ["ok": false]) // l10n-ignore
         }
     }
 
@@ -144,10 +144,10 @@ final class LocalServer: ObservableObject {
 
     private func send(_ conn: NWConnection, status: String, json: [String: Any]) {
         let body = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
-        var head = "HTTP/1.1 \(status)\r\n"
-        head += "Content-Type: application/json\r\n"
-        head += "Content-Length: \(body.count)\r\n"
-        head += "Connection: close\r\n\r\n"
+        var head = "HTTP/1.1 \(status)\r\n" // l10n-ignore
+        head += "Content-Type: application/json\r\n" // l10n-ignore
+        head += "Content-Length: \(body.count)\r\n" // l10n-ignore
+        head += "Connection: close\r\n\r\n" // l10n-ignore
         var out = Data(head.utf8)
         out.append(body)
         conn.send(content: out, completion: .contentProcessed { _ in conn.cancel() })
