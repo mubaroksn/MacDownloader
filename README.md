@@ -30,7 +30,7 @@ Detail teknis ada di [ARCHITECTURE.md](ARCHITECTURE.md).
 **Cara tercepat** — buka Terminal, tempel perintah ini, lalu Enter:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/mubaroksn/wwwrap/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rakitlab/wwwrap/main/install.sh | bash
 ```
 
 Script mengunduh rilis terbaru, memasangnya ke **Applications**, lalu membuka app. Tidak ada peringatan Gatekeeper karena file yang diunduh lewat `curl` tidak diberi tanda karantina. Setelah terpasang, update cukup dari dalam app.

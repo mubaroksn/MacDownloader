@@ -61,7 +61,7 @@ final class UpdateChecker: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var lastChecked: Date?
 
-    static let repo = "mubaroksn/wwwrap"
+    static let repo = "rakitlab/wwwrap"
     static let releasesPage = URL(string: "https://github.com/\(repo)/releases/latest")!
 
     /// The DMG attached to release `version`.

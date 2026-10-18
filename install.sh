@@ -1,7 +1,7 @@
 #!/bin/bash
 # wwwrap installer (formerly MacDownloader).
 #
-#   curl -fsSL https://raw.githubusercontent.com/mubaroksn/wwwrap/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/rakitlab/wwwrap/main/install.sh | bash
 #
 # Downloads the latest release DMG with curl and copies the app into /Applications.
 # Files fetched by curl carry no quarantine flag, so macOS opens the app without the
@@ -16,7 +16,7 @@
 #   WWWRAP_REPO=owner/name download releases from another repository
 set -euo pipefail
 
-REPO="${WWWRAP_REPO:-${MACDL_REPO:-mubaroksn/wwwrap}}"
+REPO="${WWWRAP_REPO:-${MACDL_REPO:-rakitlab/wwwrap}}"
 DEST="${WWWRAP_DEST:-${MACDL_DEST:-/Applications}}"
 VERSION="${WWWRAP_VERSION:-${MACDL_VERSION:-}}"
 LOCAL_DMG="${WWWRAP_DMG:-${MACDL_DMG:-}}"
