@@ -32,6 +32,16 @@ jobs:
           fi
           echo "BUILD=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
 
+      - name: Translations (every text has English, formats match, generated code current)
+        run: |
+          if ! python3 scripts/l10n.py --check > l10n.log; then
+            msg=$(grep -v '^l10n:' l10n.log | head -n 60 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Translations::$msg"
+            cat l10n.log
+            exit 1
+          fi
+          echo "::notice title=Translations::$(tail -n 1 l10n.log)"
+
       - name: Unit & integration tests (DownloadCore)
         run: |
           set +e
@@ -123,7 +133,8 @@ jobs:
           fail() { echo "::error title=Smoke test failed::$1"; pkill -x MacDownloader || true; exit 1; }
           note() { echo "::notice title=Smoke test::$1"; echo "$1"; }
 
-          "dist/MacDownloader.app/Contents/MacOS/MacDownloader" > app.log 2>&1 &
+          # Pinned to Indonesian: the checks below expect the Indonesian folder names (Downloads/Lainnya).
+          "dist/MacDownloader.app/Contents/MacOS/MacDownloader" -appLanguage id > app.log 2>&1 &
           for i in $(seq 1 20); do
             curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q '"ok":true' && break
             sleep 1
@@ -187,7 +198,7 @@ jobs:
           waitping() { for i in $(seq 1 20); do curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q ok && return; sleep 1; done; }
           F=https://proof.ovh.net/files
 
-          "$APP" -appearance light -snapshotPath "$SHOTS/light.png" -snapshotMenuBarPath "$SHOTS/menubar.png" -snapshotDelay 28 > app-light.log 2>&1 &
+          "$APP" -appLanguage id -appearance light -snapshotPath "$SHOTS/light.png" -snapshotMenuBarPath "$SHOTS/menubar.png" -snapshotDelay 28 > app-light.log 2>&1 &
           waitping
           add "$F/100Mb.dat" "Laporan-Keuangan-Q3.pdf"
           add "$F/1Mb.dat" "Foto-Prewedding.jpg"
@@ -208,20 +219,35 @@ jobs:
           pmset -g assertions | grep -qi "MacDownloader" && echo "::warning title=Power assertion::still held after quit" || echo "::notice title=Power assertion::released after quit"
           sleep 2
 
-          "$APP" -appearance dark -snapshotPath "$SHOTS/dark.png" -snapshotDelay 8 > app-dark.log 2>&1 &
+          "$APP" -appLanguage id -appearance dark -snapshotPath "$SHOTS/dark.png" -snapshotDelay 8 > app-dark.log 2>&1 &
           sleep 12
           pkill -x MacDownloader || true
           sleep 2
-          "$APP" -appearance light -startPage browser -snapshotPath "$SHOTS/browser.png" -snapshotDelay 6 > app-browser.log 2>&1 &
+          "$APP" -appLanguage id -appearance light -startPage browser -snapshotPath "$SHOTS/browser.png" -snapshotDelay 6 > app-browser.log 2>&1 &
           sleep 10
           pkill -x MacDownloader || true
           for section in downloads general about; do
-            "$APP" -appearance light -startPage settings -settingsSection $section -snapshotPath "$SHOTS/settings-$section.png" -snapshotDelay 6 > app-settings.log 2>&1 &
+            "$APP" -appLanguage id -appearance light -startPage settings -settingsSection $section -snapshotPath "$SHOTS/settings-$section.png" -snapshotDelay 6 > app-settings.log 2>&1 &
             sleep 9
             pkill -x MacDownloader || true
             sleep 1
           done
-          "$APP" -appearance dark -startPage settings -settingsSection downloads -snapshotPath "$SHOTS/settings-dark.png" -snapshotDelay 6 > app-settings.log 2>&1 &
+          "$APP" -appLanguage id -appearance dark -startPage settings -settingsSection downloads -snapshotPath "$SHOTS/settings-dark.png" -snapshotDelay 6 > app-settings.log 2>&1 &
+          sleep 9
+          pkill -x MacDownloader || true
+          sleep 1
+          # English
+          "$APP" -appLanguage en -appearance light -snapshotPath "$SHOTS/en-downloads.png" -snapshotMenuBarPath "$SHOTS/en-menubar.png" -snapshotDelay 8 > app-en.log 2>&1 &
+          sleep 12
+          pkill -x MacDownloader || true
+          sleep 1
+          for section in appearance downloads; do
+            "$APP" -appLanguage en -appearance light -startPage settings -settingsSection $section -snapshotPath "$SHOTS/en-settings-$section.png" -snapshotDelay 6 > app-en.log 2>&1 &
+            sleep 9
+            pkill -x MacDownloader || true
+            sleep 1
+          done
+          "$APP" -appLanguage en -appearance light -startPage browser -snapshotPath "$SHOTS/en-browser.png" -snapshotDelay 6 > app-en.log 2>&1 &
           sleep 9
           pkill -x MacDownloader || true
 

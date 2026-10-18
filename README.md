@@ -17,6 +17,7 @@ Download manager untuk macOS ala IDM: native SwiftUI, universal (Apple Silicon +
 - **Mode kecepatan** Penuh, Hemat, dan Senyap untuk semua download sekaligus, supaya video call atau streaming tetap lancar. Batas Hemat dan Senyap bisa diatur di Pengaturan › Download. Batasnya berlaku di jaringan (server ikut melambat), bukan sekadar menunda penulisan ke disk.
 - **Ikon menu bar** untuk melihat progres, mengganti mode kecepatan, menjeda, atau melanjutkan download dengan cepat.
 - **Pengaturan** di dalam jendela utama (⌘,): Umum (folder, buka saat login, cegah tidur), Download (koneksi, antrean, batas kecepatan), Integrasi, Tampilan (terang/gelap/ikut sistem), dan Tentang (cek update dari GitHub).
+- **Dua bahasa: Indonesia dan English.** Pilih di Pengaturan › Tampilan (bawaan: ikut bahasa macOS). Ganti bahasa langsung berlaku tanpa restart, termasuk menu bar, notifikasi, pesan error, dan ekstensi browser.
 - **Antrian & kategori.** Ada batas download bersamaan, dan file otomatis masuk ke subfolder Video, Musik, Dokumen, Program, Arsip, Gambar, atau Lainnya.
 - **Integrasi browser** untuk Chrome, Edge, Brave, dan Arc: download diambil alih otomatis dan tersedia menu klik kanan. Cookie dan referrer ikut dikirim.
 
@@ -81,3 +82,13 @@ Untuk mengembangkan di Xcode: buka `Package.swift` langsung (File › Open). Xco
 | `Sources/MacDownloader/UI/` | Tampilan SwiftUI dan menu bar |
 | `Tests/DownloadCoreTests/` | Unit test dan tes end-to-end dengan server lokal |
 | `ChromeExtension/` | Ekstensi browser (Manifest V3) — satu sumber untuk Chromium & Firefox (`scripts/build_extensions.sh`) |
+
+## Terjemahan
+
+Teks di kode ditulis dalam bahasa Indonesia dan dibungkus `L("...")` (Swift) atau `t("...")` (ekstensi). Terjemahan Inggris ada di `Localization/en.json`. Setelah mengubah teks, jalankan:
+
+```
+python3 scripts/l10n.py
+```
+
+Script itu membuat ulang `Strings.generated.swift` dan `ChromeExtension/strings.js`, dan gagal bila ada teks tanpa terjemahan, terjemahan yang tidak terpakai, atau format (`%ld`, `%@`) yang tidak cocok. CI menjalankan pemeriksaan yang sama di setiap build.

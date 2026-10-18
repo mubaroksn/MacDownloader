@@ -19,10 +19,10 @@ struct AddDownloadView: View {
             HStack(spacing: 12) {
                 AppMark()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Tambah Download")
+                    Text(L("Tambah Download"))
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("Tempel satu atau beberapa link, satu per baris.")
+                    Text(L("Tempel satu atau beberapa link, satu per baris."))
                         .font(.system(size: 12.5))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -37,7 +37,7 @@ struct AddDownloadView: View {
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.border))
 
             if urls.count <= 1 {
-                TextField("Nama file (opsional)", text: $fileName)
+                TextField(L("Nama file (opsional)"), text: $fileName)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .padding(.horizontal, 12)
@@ -46,17 +46,17 @@ struct AddDownloadView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.border))
             }
 
-            Toggle("Mulai sekarang", isOn: $startNow)
+            Toggle(L("Mulai sekarang"), isOn: $startNow)
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .font(.system(size: 13))
 
             HStack(spacing: 8) {
-                Text(urls.isEmpty ? "Masukkan link http/https" : "\(urls.count) link siap")
+                Text(urls.isEmpty ? L("Masukkan link http/https") : L("%ld link siap", urls.count))
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer()
-                Button("Batal") { dismiss() }
+                Button(L("Batal")) { dismiss() }
                     .buttonStyle(SecondaryButtonStyle())
                     .keyboardShortcut(.cancelAction)
                 Button("Download") {

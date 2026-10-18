@@ -29,8 +29,8 @@ path, version, browser = sys.argv[1:]
 m = json.load(open(path))
 m["version"] = version
 if browser == "firefox":
-    m["background"] = {"scripts": ["background.js"]}
-    m["description"] = "Kirim download dari Firefox ke aplikasi MacDownloader."
+    # Event page instead of a service worker; it can't importScripts, so list the helpers.
+    m["background"] = {"scripts": ["strings.js", "i18n.js", "background.js"]}
     m["browser_specific_settings"] = {
         "gecko": {
             "id": "macdownloader@mubaroksn.github.io",

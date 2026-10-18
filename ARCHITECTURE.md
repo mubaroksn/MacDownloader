@@ -72,6 +72,21 @@ TCP window closes, so the cap holds on the wire. Changing the cap bumps a genera
 releases current waiters within 0.25 s. The app maps three modes (Penuh/Hemat/Senyap) to caps
 stored in UserDefaults.
 
+## Localization
+
+Indonesian source text is the lookup key: `L("Batal")` returns the key itself in Indonesian
+and `Strings.en["Batal"]` in English. `Strings.generated.swift` (app) and
+`ChromeExtension/strings.js` (extension) are generated from `Localization/en.json` by
+`scripts/l10n.py`, which also lints for unwrapped UI text, unused or missing entries and
+mismatched format specifiers; CI fails on any of these. English plurals are `"one|other"`,
+chosen by the first integer argument.
+
+`Lang.code` reads UserDefaults (`appLanguage`: system/id/en) on every lookup, and the App
+puts `.id(appLanguage)` on the window and menu bar roots, so a change rebuilds the views
+without a restart. DownloadCore error messages go through `EngineLocalization.lookup`,
+installed by the app at launch. The extension follows the app: `/hello` replies carry `lang`.
+Installs from before 1.6 are pinned to Indonesian on first launch.
+
 ## Power
 
 `SystemActivity` holds a `PreventUserIdleSystemSleep` IOKit assertion (display may still sleep)

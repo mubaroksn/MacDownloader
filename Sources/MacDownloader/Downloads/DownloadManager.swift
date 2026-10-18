@@ -31,9 +31,9 @@ enum SpeedMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .full: return "Penuh"
-        case .saver: return "Hemat"
-        case .quiet: return "Senyap"
+        case .full: return L("Penuh")
+        case .saver: return L("Hemat")
+        case .quiet: return L("Senyap")
         }
     }
 
@@ -174,13 +174,13 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
     /// Lists a public Drive folder and queues every file, keeping the folder structure under
     /// Downloads/<folder name>/. Failures show up as one failed row with the reason.
     private func expandDriveFolder(_ folderID: String, request: DownloadRequest) {
-        UIState.shared.flash("Membaca isi folder Google Drive…", autoHide: false)
+        UIState.shared.flash(L("Membaca isi folder Google Drive…"), autoHide: false)
         Task {
             do {
                 let contents = try await DriveFolder.contents(of: folderID, headers: request.headers)
-                let root = sanitize(contents.title).isEmpty ? "Google Drive" : sanitize(contents.title)
+                let root = sanitize(contents.title).isEmpty ? "Google Drive" : sanitize(contents.title) // l10n-ignore
                 guard !contents.files.isEmpty else {
-                    UIState.shared.flash("Folder \"\(root)\" kosong atau hanya berisi file Google yang tidak bisa diunduh")
+                    UIState.shared.flash(L("Folder \"%@\" kosong atau hanya berisi file Google yang tidak bisa diunduh", root))
                     return
                 }
                 for file in contents.files {
@@ -196,12 +196,12 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
                         items[i].totalBytes = size
                     }
                 }
-                var message = "\(contents.files.count) file dari folder \"\(root)\" ditambahkan"
-                if contents.truncated { message += ". Google hanya menampilkan sebagian isi folder besar; sisanya unduh per subfolder" }
+                var message = L("%ld file dari folder \"%@\" ditambahkan", contents.files.count, root)
+                if contents.truncated { message += L(". Google hanya menampilkan sebagian isi folder besar; sisanya unduh per subfolder") }
                 UIState.shared.flash(message)
             } catch {
                 UIState.shared.flash(nil)
-                var item = DownloadItem(url: request.url, fileName: "Folder Google Drive", category: .other)
+                var item = DownloadItem(url: request.url, fileName: L("Folder Google Drive"), category: .other)
                 item.sourceURL = request.url
                 item.headers = request.headers
                 item.status = .failed
@@ -470,7 +470,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
     private func notifyCompletion(_ destination: URL) {
         guard notifyOnComplete else { return }
         let content = UNMutableNotificationContent()
-        content.title = "Download selesai"
+        content.title = L("Download selesai")
         content.body = destination.lastPathComponent
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
@@ -613,7 +613,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         let ext = (name as NSString).pathExtension
         var n = 1
         while taken(candidate) {
-            candidate = folder.appendingPathComponent(ext.isEmpty ? "\(base) (\(n))" : "\(base) (\(n)).\(ext)")
+            candidate = folder.appendingPathComponent(ext.isEmpty ? "\(base) (\(n))" : "\(base) (\(n)).\(ext)") // l10n-ignore
             n += 1
         }
         return candidate

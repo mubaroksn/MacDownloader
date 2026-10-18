@@ -25,7 +25,7 @@ final class SystemActivity {
             let result = IOPMAssertionCreateWithName(
                 "PreventUserIdleSystemSleep" as CFString,
                 IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                "MacDownloader sedang mengunduh file" as CFString,
+                L("MacDownloader sedang mengunduh file") as CFString,
                 &assertionID)
             holdsAssertion = result == kIOReturnSuccess
         } else if !wantAssertion && holdsAssertion {
@@ -37,7 +37,7 @@ final class SystemActivity {
         if transferring && activity == nil {
             activity = ProcessInfo.processInfo.beginActivity(
                 options: [.userInitiatedAllowingIdleSystemSleep],
-                reason: "Downloading files")
+                reason: "Downloading files") // l10n-ignore
         } else if !transferring, let current = activity {
             ProcessInfo.processInfo.endActivity(current)
             activity = nil

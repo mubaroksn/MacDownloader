@@ -6,11 +6,11 @@ enum DownloadStatus: String, Codable {
 
     var label: String {
         switch self {
-        case .queued: return "Antri"
-        case .downloading: return "Mengunduh"
-        case .paused: return "Dijeda"
-        case .completed: return "Selesai"
-        case .failed: return "Gagal"
+        case .queued: return L("Antri")
+        case .downloading: return L("Mengunduh")
+        case .paused: return L("Dijeda")
+        case .completed: return L("Selesai")
+        case .failed: return L("Gagal")
         }
     }
 }
@@ -19,15 +19,16 @@ enum FileCategory: String, Codable, CaseIterable, Identifiable {
     case video, music, document, program, archive, image, other
     var id: String { rawValue }
 
+    /// Display name; also the subfolder name, so it follows the language at download time.
     var label: String {
         switch self {
-        case .video: return "Video"
-        case .music: return "Musik"
-        case .document: return "Dokumen"
-        case .program: return "Program"
-        case .archive: return "Arsip"
-        case .image: return "Gambar"
-        case .other: return "Lainnya"
+        case .video: return L("Video")
+        case .music: return L("Musik")
+        case .document: return L("Dokumen")
+        case .program: return L("Program")
+        case .archive: return L("Arsip")
+        case .image: return L("Gambar")
+        case .other: return L("Lainnya")
         }
     }
 

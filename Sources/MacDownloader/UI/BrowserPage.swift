@@ -5,7 +5,7 @@ enum ExtensionInstaller {
     /// Copies the bundled Chrome extension to Application Support and reveals it in Finder.
     static func install() -> Result<URL, Error> {
         guard let source = Bundle.main.resourceURL?.appendingPathComponent("ChromeExtension") else {
-            return .failure(CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "Ekstensi tidak ditemukan di dalam app"]))
+            return .failure(CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: L("Ekstensi tidak ditemukan di dalam app")]))
         }
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -28,18 +28,18 @@ struct BrowserPage: View {
     @AppStorage(SettingsKey.monitorClipboard) private var monitorClipboard = true
     @State private var result: String?
 
-    private let steps: [(String, String)] = [
-        ("Siapkan ekstensi", "Klik tombol di bawah. Folder ekstensi akan terbuka di Finder."),
-        ("Buka halaman ekstensi",
-         "Ketik chrome://extensions di address bar (berlaku juga di Dia, Arc, Brave; Edge: edge://extensions), lalu nyalakan Developer mode."),
-        ("Load unpacked", "Klik Load unpacked dan pilih folder ChromeExtension yang tadi terbuka."),
-        ("Cek koneksi", "Dalam 30 detik, status di atas berubah jadi \"Ekstensi terhubung\". Kalau tidak, muat ulang ekstensinya."),
-    ]
+    private var steps: [(String, String)] { [
+        (L("Siapkan ekstensi"), L("Klik tombol di bawah. Folder ekstensi akan terbuka di Finder.")),
+        (L("Buka halaman ekstensi"),
+         L("Ketik chrome://extensions di address bar (berlaku juga di Dia, Arc, Brave; Edge: edge://extensions), lalu nyalakan Developer mode.")),
+        (L("Load unpacked"), L("Klik Load unpacked dan pilih folder ChromeExtension yang tadi terbuka.")),
+        (L("Cek koneksi"), L("Dalam 30 detik, status di atas berubah jadi \"Ekstensi terhubung\". Kalau tidak, muat ulang ekstensinya.")),
+    ] }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Integrasi Browser")
+                Text(L("Integrasi Browser"))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
@@ -53,7 +53,7 @@ struct BrowserPage: View {
                     statusCard
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "Pasang ekstensi", detail: "Chrome · Edge · Brave · Arc · Dia · Firefox")
+                        SectionTitle(title: L("Pasang ekstensi"), detail: "Chrome · Edge · Brave · Arc · Dia · Firefox") // l10n-ignore
                         VStack(spacing: 0) {
                             ForEach(steps.indices, id: \.self) { i in
                                 HStack(alignment: .top, spacing: 14) {
@@ -84,9 +84,9 @@ struct BrowserPage: View {
                             Button {
                                 switch ExtensionInstaller.install() {
                                 case .success(let url): result = url.path
-                                case .failure(let error): result = "Gagal: \(error.localizedDescription)"
+                                case .failure(let error): result = L("Gagal: %@", error.localizedDescription)
                                 }
-                            } label: { Label("Siapkan ekstensi", systemImage: "puzzlepiece.extension") }
+                            } label: { Label(L("Siapkan ekstensi"), systemImage: "puzzlepiece.extension") }
                                 .buttonStyle(PrimaryButtonStyle())
                             if let result {
                                 Text(result)
@@ -98,23 +98,23 @@ struct BrowserPage: View {
                         }
                         .labelStyle(CompactLabelStyle())
 
-                        Text("**Firefox:** unduh file MacDownloader-Firefox (.xpi) dari halaman Releases di GitHub, lalu seret ke jendela Firefox dan klik Add.")
+                        Text(LocalizedStringKey(L("**Firefox:** unduh file MacDownloader-Firefox (.xpi) dari halaman Releases di GitHub, lalu seret ke jendela Firefox dan klik Add.")))
                             .font(.system(size: 12.5))
                             .foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "Tanpa ekstensi", detail: "Safari, atau app apa pun")
+                        SectionTitle(title: L("Tanpa ekstensi"), detail: L("Safari, atau app apa pun"))
                         HStack(alignment: .top, spacing: 14) {
-                            feature("doc.on.clipboard", "Salin link",
-                                    "Klik kanan link download › Copy Link. MacDownloader langsung menawarkan untuk mengunduhnya.")
-                            feature("link", "Link berbagi dikenali",
-                                    "Google Drive, Google Docs, Dropbox, GitHub, SharePoint, MediaFire, dan Pixeldrain diubah ke file aslinya.")
-                            feature("arrow.down.doc", "Tarik & lepas",
-                                    "Tarik link ke jendela MacDownloader, atau tempel di tombol Tambah.")
+                            feature("doc.on.clipboard", L("Salin link"),
+                                    L("Klik kanan link download › Copy Link. MacDownloader langsung menawarkan untuk mengunduhnya."))
+                            feature("link", L("Link berbagi dikenali"),
+                                    L("Google Drive, Google Docs, Dropbox, GitHub, SharePoint, MediaFire, dan Pixeldrain diubah ke file aslinya."))
+                            feature("arrow.down.doc", L("Tarik & lepas"),
+                                    L("Tarik link ke jendela MacDownloader, atau tempel di tombol Tambah."))
                         }
-                        Toggle("Tawarkan download saat link file disalin", isOn: $monitorClipboard)
+                        Toggle(L("Tawarkan download saat link file disalin"), isOn: $monitorClipboard)
                             .toggleStyle(.switch)
                             .controlSize(.small)
                             .font(.system(size: 13))
@@ -122,16 +122,16 @@ struct BrowserPage: View {
                     }
 
                     VStack(alignment: .leading, spacing: 14) {
-                        SectionTitle(title: "Cara kerja ekstensi", detail: nil)
+                        SectionTitle(title: L("Cara kerja ekstensi"), detail: nil)
                         HStack(alignment: .top, spacing: 14) {
-                            feature("arrow.down.circle", "Tangkap otomatis",
-                                    "Download di browser langsung dialihkan ke MacDownloader.")
-                            feature("cursorarrow.click.2", "Klik kanan",
-                                    "Pilih \"Download dengan MacDownloader\" pada link, video, atau gambar.")
-                            feature("lock", "Tetap login",
-                                    "Cookie dan referrer ikut dikirim, jadi file Google Drive pribadi dan situs login tetap bisa.")
-                            feature("arrow.uturn.backward", "Tidak pernah gagal diam-diam",
-                                    "Kalau MacDownloader tidak bisa mengambil file-nya, download dikembalikan ke browser.")
+                            feature("arrow.down.circle", L("Tangkap otomatis"),
+                                    L("Download di browser langsung dialihkan ke MacDownloader."))
+                            feature("cursorarrow.click.2", L("Klik kanan"),
+                                    L("Pilih \"Download dengan MacDownloader\" pada link, video, atau gambar."))
+                            feature("lock", L("Tetap login"),
+                                    L("Cookie dan referrer ikut dikirim, jadi file Google Drive pribadi dan situs login tetap bisa."))
+                            feature("arrow.uturn.backward", L("Tidak pernah gagal diam-diam"),
+                                    L("Kalau MacDownloader tidak bisa mengambil file-nya, download dikembalikan ke browser."))
                         }
                     }
                 }
@@ -144,13 +144,13 @@ struct BrowserPage: View {
     private var statusCard: some View {
         let connected = server.extensionConnected
         let color = !server.isRunning ? Theme.red : (connected ? Theme.green : Theme.orange)
-        let title = !server.isRunning ? "Server lokal tidak berjalan"
-            : connected ? "Ekstensi terhubung" + (server.extensionBrowser.map { " · \($0)" } ?? "")
-            : "Ekstensi belum terhubung"
+        let title = !server.isRunning ? L("Server lokal tidak berjalan")
+            : connected ? L("Ekstensi terhubung") + (server.extensionBrowser.map { " · \($0)" } ?? "")
+            : L("Ekstensi belum terhubung")
         let detail = !server.isRunning
-            ? "Port \(String(LocalServer.port)) mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang MacDownloader."
-            : connected ? "Download di browser akan otomatis diambil alih MacDownloader."
-            : "Pasang ekstensi di bawah. Sementara itu, salin link download dan MacDownloader akan menawarkannya."
+            ? L("Port %@ mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang MacDownloader.", String(LocalServer.port))
+            : connected ? L("Download di browser akan otomatis diambil alih MacDownloader.")
+            : L("Pasang ekstensi di bawah. Sementara itu, salin link download dan MacDownloader akan menawarkannya.")
         return HStack(spacing: 14) {
             Circle()
                 .fill(color.opacity(0.15))

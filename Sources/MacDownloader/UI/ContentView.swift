@@ -10,11 +10,11 @@ enum SidebarFilter: Hashable {
 
     var title: String {
         switch self {
-        case .all: return "Semua Download"
-        case .active: return "Mengunduh"
-        case .paused: return "Dijeda"
-        case .completed: return "Selesai"
-        case .failed: return "Gagal"
+        case .all: return L("Semua Download")
+        case .active: return L("Mengunduh")
+        case .paused: return L("Dijeda")
+        case .completed: return L("Selesai")
+        case .failed: return L("Gagal")
         case .category(let c): return c.label
         }
     }
@@ -100,12 +100,12 @@ struct ContentView: View {
         .sheet(isPresented: $ui.showAddSheet) {
             AddDownloadView().environmentObject(manager)
         }
-        .confirmationDialog("Hapus \(pendingDelete.count) download?", isPresented: $confirmDelete) {
-            Button("Hapus dari daftar") {
+        .confirmationDialog(L("Hapus %ld download?", pendingDelete.count), isPresented: $confirmDelete) {
+            Button(L("Hapus dari daftar")) {
                 manager.remove(pendingDelete, deleteFiles: false)
                 selection.subtract(pendingDelete)
             }
-            Button("Hapus beserta file", role: .destructive) {
+            Button(L("Hapus beserta file"), role: .destructive) {
                 manager.remove(pendingDelete, deleteFiles: true)
                 selection.subtract(pendingDelete)
             }
@@ -142,7 +142,7 @@ struct TopBar: View {
                         Image(systemName: manager.speedMode.symbol)
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(Theme.textSecondary)
-                            .help("Mode \(manager.speedMode.label) aktif")
+                            .help(L("Mode %@ aktif", manager.speedMode.label))
                     }
                 }
                 .font(.system(size: 12, weight: .medium))
@@ -157,8 +157,8 @@ struct TopBar: View {
                         .fill(server.extensionConnected ? Theme.green : Theme.orange)
                         .frame(width: 7, height: 7)
                     Text(server.extensionConnected
-                         ? "Ekstensi terhubung" + (server.extensionBrowser.map { " · \($0)" } ?? "")
-                         : "Ekstensi belum terhubung")
+                         ? L("Ekstensi terhubung") + (server.extensionBrowser.map { " · \($0)" } ?? "")
+                         : L("Ekstensi belum terhubung"))
                 }
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
@@ -168,7 +168,7 @@ struct TopBar: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .help("Status ekstensi browser")
+            .help(L("Status ekstensi browser"))
         }
         .padding(.trailing, 16)
         .frame(height: 52)
@@ -199,14 +199,14 @@ struct Rail: View {
         VStack(spacing: 8) {
             Button { page = .downloads } label: { Image(systemName: "arrow.down.circle") }
                 .buttonStyle(IconButtonStyle(size: 40, active: page == .downloads, iconSize: 18))
-                .help("Download")
+                .help(L("Download"))
             Button { page = .browser } label: { Image(systemName: "globe") }
                 .buttonStyle(IconButtonStyle(size: 40, active: page == .browser, iconSize: 18))
-                .help("Integrasi browser")
+                .help(L("Integrasi browser"))
             Spacer()
             Button { page = .settings } label: { Image(systemName: "gearshape") }
                 .buttonStyle(IconButtonStyle(size: 40, active: page == .settings, iconSize: 18))
-                .help("Pengaturan (⌘,)")
+                .help(L("Pengaturan (⌘,)"))
         }
         .padding(.vertical, 14)
         .frame(width: 64)
@@ -228,16 +228,16 @@ struct SidebarPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
-                Text("Download")
+                Text(L("Download"))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Button(action: onAdd) { Image(systemName: "plus") }
                     .buttonStyle(IconButtonStyle())
-                    .help("Tambah download (⌘N)")
+                    .help(L("Tambah download (⌘N)"))
                 Button(action: onCollapse) { Image(systemName: "sidebar.left") }
                     .buttonStyle(IconButtonStyle())
-                    .help("Sembunyikan panel")
+                    .help(L("Sembunyikan panel"))
             }
             .padding(.leading, 20)
             .padding(.trailing, 12)
@@ -248,7 +248,7 @@ struct SidebarPanel: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.textSecondary)
-                TextField("Cari file…", text: $search)
+                TextField(L("Cari file…"), text: $search)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13.5))
                 if !search.isEmpty {
@@ -263,17 +263,17 @@ struct SidebarPanel: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SegmentedSwitch(selection: $tab, options: [(.status, "Status"), (.category, "Kategori")])
+                    SegmentedSwitch(selection: $tab, options: [(.status, L("Status")), (.category, L("Kategori"))])
                         .padding(.bottom, 12)
 
                     if tab == .status {
-                        tree(root: .all, rootTitle: "Semua Download", children: SidebarFilter.statusFilters)
+                        tree(root: .all, rootTitle: L("Semua Download"), children: SidebarFilter.statusFilters)
                     } else {
-                        tree(root: .all, rootTitle: "Semua Kategori",
+                        tree(root: .all, rootTitle: L("Semua Kategori"),
                              children: FileCategory.allCases.map { .category($0) })
                     }
 
-                    SidebarRow(title: "Buka folder download", symbol: "arrow.up.forward.square",
+                    SidebarRow(title: L("Buka folder download"), symbol: "arrow.up.forward.square",
                                count: nil, selected: false) {
                         NSWorkspace.shared.open(manager.downloadFolder)
                     }
@@ -350,14 +350,14 @@ struct SummaryCard: View {
         let done = manager.items.filter { $0.status == .completed }
         let bytes = done.reduce(Int64(0)) { $0 + max(0, $1.totalBytes) }
         VStack(alignment: .leading, spacing: 6) {
-            Text("Total diunduh")
+            Text(L("Total diunduh"))
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
             Text(bytes > 0 ? Format.bytes(bytes) : "0 MB")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
-            Text("\(done.count) file selesai · \(manager.connectionsPerDownload) koneksi per file")
+            Text(L("%ld file selesai · %ld koneksi per file", done.count, manager.connectionsPerDownload))
                 .font(.system(size: 11.5))
                 .foregroundStyle(Theme.textSecondary)
         }

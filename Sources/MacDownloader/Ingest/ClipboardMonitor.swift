@@ -86,7 +86,7 @@ enum LinkOffer {
 
     static func registerCategories() {
         let download = UNNotificationAction(identifier: downloadAction, title: "Download", options: [])
-        let ignore = UNNotificationAction(identifier: ignoreAction, title: "Abaikan", options: [])
+        let ignore = UNNotificationAction(identifier: ignoreAction, title: L("Abaikan"), options: [])
         let offer = UNNotificationCategory(identifier: category, actions: [download, ignore],
                                            intentIdentifiers: [], options: [])
         UNUserNotificationCenter.current().setNotificationCategories([offer])
@@ -97,7 +97,7 @@ enum LinkOffer {
         UIState.shared.clipboardOffer = url
 
         let content = UNMutableNotificationContent()
-        content.title = "Link download tersalin"
+        content.title = L("Link download tersalin")
         content.body = displayName(for: url)
         content.categoryIdentifier = category
         content.userInfo = ["url": url.absoluteString]
@@ -113,10 +113,10 @@ enum LinkOffer {
     static func dismiss() { UIState.shared.clipboardOffer = nil }
 
     static func displayName(for url: URL) -> String {
-        if DriveFolder.folderID(from: url) != nil { return "Folder Google Drive · semua isinya" }
+        if DriveFolder.folderID(from: url) != nil { return L("Folder Google Drive · semua isinya") }
         let name = url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
         let host = url.host ?? ""
-        return name.isEmpty || name == "/" || !name.contains(".") ? host + url.path : "\(name) · \(host)"
+        return name.isEmpty || name == "/" || !name.contains(".") ? host + url.path : "\(name) · \(host)" // l10n-ignore
     }
 }
 

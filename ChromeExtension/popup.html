@@ -18,11 +18,13 @@
 </head>
 <body>
   <h1>MacDownloader</h1>
-  <div class="status"><span id="dot" class="dot"></span><span id="text">Memeriksa aplikasi…</span></div>
-  <button id="grant">Izinkan akses ke semua situs</button>
-  <label>Tangkap download otomatis <input type="checkbox" id="enabled"></label>
-  <label>Abaikan file di bawah (MB) <input type="number" id="minSize" min="0" step="1"></label>
-  <p>Klik kanan pada link → <b>Download dengan MacDownloader</b> juga bisa. Kalau aplikasi tidak berjalan, download kembali ditangani browser.</p>
+  <div class="status"><span id="dot" class="dot"></span><span id="text" data-i18n>Memeriksa aplikasi…</span></div>
+  <button id="grant" data-i18n>Izinkan akses ke semua situs</button>
+  <label><span data-i18n>Tangkap download otomatis</span> <input type="checkbox" id="enabled"></label>
+  <label><span data-i18n>Abaikan file di bawah (MB)</span> <input type="number" id="minSize" min="0" step="1"></label>
+  <p><span data-i18n>Klik kanan pada link →</span> <b data-i18n>Download dengan MacDownloader</b> <span data-i18n>juga bisa. Kalau aplikasi tidak berjalan, download kembali ditangani browser.</span></p>
+  <script src="strings.js"></script>
+  <script src="i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
