@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Builds a universal (Apple Silicon + Intel) MacDownloader.app and a .dmg. Run on macOS.
+# Builds a universal (Apple Silicon + Intel) wwwrap.app and a .dmg. Run on macOS.
 set -euo pipefail
 
 VERSION="${VERSION:-1.0.0}"
 BUILD="${BUILD:-1}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/dist"
-APP="$OUT/MacDownloader.app"
+APP="$OUT/wwwrap.app"
 
 cd "$ROOT"
 rm -rf "$OUT"
@@ -17,11 +17,11 @@ VERSION="$VERSION" OUT="$OUT" "$ROOT/scripts/build_extensions.sh"
 
 echo "==> Compiling"
 swift build -c release --arch arm64 --arch x86_64
-BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/MacDownloader"
+BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/wwwrap"
 
 echo "==> Assembling app bundle"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/MacDownloader"
+cp "$BIN" "$APP/Contents/MacOS/wwwrap"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 cp -R "$OUT/ext/ChromeExtension" "$APP/Contents/Resources/ChromeExtension"
 
@@ -45,7 +45,7 @@ STAGE="$OUT/dmg"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "MacDownloader" -srcfolder "$STAGE" -ov -format UDZO "$OUT/MacDownloader-$VERSION.dmg"
+hdiutil create -volname "wwwrap" -srcfolder "$STAGE" -ov -format UDZO "$OUT/wwwrap-$VERSION.dmg"
 rm -rf "$STAGE"
 
 echo "Done:"

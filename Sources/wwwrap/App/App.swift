@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct MacDownloaderApp: App {
+struct WwwrapApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var manager = DownloadManager.shared
     @StateObject private var ui = UIState.shared
@@ -11,8 +11,9 @@ struct MacDownloaderApp: App {
     @AppStorage(Lang.key) private var appLanguage = ""
 
     init() {
+        LegacyMigration.run()
         let state = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacDownloader/downloads.json")
+            .appendingPathComponent("wwwrap/downloads.json")
         let defaults = UserDefaults.standard
         let existing = FileManager.default.fileExists(atPath: state.path)
             || [SettingsKey.statsDay, SettingsKey.connections, SettingsKey.speedMode, "sortOrder"]
@@ -22,7 +23,7 @@ struct MacDownloaderApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("MacDownloader", id: MacDownloaderApp.mainWindowID) {
+        WindowGroup("wwwrap", id: WwwrapApp.mainWindowID) {
             ContentView()
                 .environmentObject(manager)
                 .environmentObject(ui)
@@ -73,7 +74,7 @@ private struct OpenSettingsCommand: View {
     var body: some View {
         Button(L("Pengaturan…")) {
             UIState.shared.openSettings()
-            MainWindow.show { openWindow(id: MacDownloaderApp.mainWindowID) }
+            MainWindow.show { openWindow(id: WwwrapApp.mainWindowID) }
         }
         .keyboardShortcut(",")
     }
@@ -130,6 +131,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             LinkOffer.registerCategories()
             ClipboardMonitor.shared.setEnabled(UserDefaults.standard.object(forKey: SettingsKey.monitorClipboard) as? Bool ?? true)
             ThemeMode.applyStored()
+            DownloadManager.shared.resumeAfterLaunch()
+            LegacyMigration.finishAfterLaunch()
+            // CI: -updateTestDMG <path> runs the in-app update against a local DMG.
+            if let dmg = UserDefaults.standard.string(forKey: "updateTestDMG") {
+                AppUpdater.shared.start(source: URL(fileURLWithPath: dmg), expectedVersion: nil)
+            }
             if UserDefaults.standard.object(forKey: SettingsKey.autoCheckUpdates) as? Bool ?? true {
                 UpdateChecker.shared.check()
             }

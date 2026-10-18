@@ -91,7 +91,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
 
     private let supportDir: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("MacDownloader", isDirectory: true)
+        let dir = base.appendingPathComponent("wwwrap", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }()
@@ -227,6 +227,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             }
             items[i].status = .queued
             items[i].errorMessage = nil
+            items[i].waitingForNetwork = false
         }
         save()
         schedule()
@@ -236,6 +237,11 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         for id in ids {
             guard let i = index(id) else { continue }
             if items[i].status == .queued || items[i].status == .downloading { items[i].status = .paused }
+            if items[i].waitingForNetwork {
+                items[i].waitingForNetwork = false
+                items[i].errorMessage = nil
+                items[i].status = .paused
+            }
             transfers[id]?.task.cancel() // runTransfer persists the snapshot when it unwinds
         }
         save()
@@ -248,6 +254,7 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             removeTempFile(of: items[i])
             resetProgress(at: i)
             items[i].errorMessage = nil
+            items[i].waitingForNetwork = false
             items[i].status = .queued
         }
         save()
@@ -276,7 +283,27 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
     }
 
     func resumeAll() { resume(Set(items.filter { [.paused, .failed].contains($0.status) }.map(\.id))) }
-    func pauseAll() { pause(Set(items.filter { [.downloading, .queued].contains($0.status) }.map(\.id))) }
+    func pauseAll() { pause(Set(items.filter { [.downloading, .queued].contains($0.status) || $0.waitingForNetwork }.map(\.id))) }
+
+    // MARK: Waiting for the network
+
+    var hasDownloadsWaitingForNetwork: Bool { items.contains { $0.waitingForNetwork } }
+    var waitingForNetworkCount: Int { items.filter { $0.waitingForNetwork }.count }
+
+    /// Called by `NetworkWatcher` once the internet answers again; each item keeps its own backoff.
+    func resumeDownloadsWaitingForNetwork() {
+        let now = Date()
+        var resumed = false
+        for i in items.indices where items[i].waitingForNetwork && items[i].nextNetworkRetry <= now {
+            items[i].waitingForNetwork = false
+            items[i].errorMessage = nil
+            items[i].status = .queued
+            resumed = true
+        }
+        guard resumed else { return }
+        save()
+        schedule()
+    }
 
     func item(_ id: UUID) -> DownloadItem? { index(id).map { items[$0] } }
 
@@ -423,6 +450,8 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         items[i].completedAt = Date()
         items[i].speed = 0
         items[i].activeConnections = 0
+        items[i].networkRetries = 0
+        items[i].waitingForNetwork = false
         if items[i].totalBytes < 0 { items[i].totalBytes = items[i].downloadedBytes }
         notifyCompletion(destination)
     }
@@ -442,7 +471,23 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
             items[i].status = .queued
             return
         }
+        if let kind = NetworkFailure.classify(error) {
+            // Real progress since the last drop means this is a fresh outage, not a stuck download.
+            if items[i].downloadedBytes > items[i].bytesAtLastNetworkFailure + (1 << 20) { items[i].networkRetries = 0 }
+            if kind == .connectivity || items[i].networkRetries < 6 {
+                items[i].networkRetries += 1
+                items[i].bytesAtLastNetworkFailure = items[i].downloadedBytes
+                let backoff = min(300, 5 * pow(2, Double(min(items[i].networkRetries, 7) - 1)))
+                items[i].nextNetworkRetry = Date().addingTimeInterval(backoff)
+                items[i].status = .failed
+                items[i].waitingForNetwork = true
+                items[i].errorMessage = L("Koneksi terputus. Dilanjutkan otomatis saat internet kembali.")
+                NetworkWatcher.shared.wake()
+                return
+            }
+        }
         items[i].status = .failed
+        items[i].waitingForNetwork = false
         items[i].errorMessage = error.localizedDescription
     }
 
@@ -646,6 +691,23 @@ final class DownloadManager: ObservableObject, DownloadDispatching {
         saveWork = work
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.3, execute: work)
     }
+
+    /// Before an in-app update relaunches the app: remember what was running.
+    func rememberActiveForRelaunch() {
+        let ids = items.filter { [.downloading, .queued].contains($0.status) }.map(\.id.uuidString)
+        defaults.set(ids, forKey: Self.resumeAfterRelaunchKey)
+    }
+
+    /// After launch: continue downloads interrupted by an update, and watch the network for waiting ones.
+    func resumeAfterLaunch() {
+        if let ids = defaults.stringArray(forKey: Self.resumeAfterRelaunchKey) {
+            defaults.removeObject(forKey: Self.resumeAfterRelaunchKey)
+            resume(Set(ids.compactMap(UUID.init(uuidString:))))
+        }
+        if hasDownloadsWaitingForNetwork { NetworkWatcher.shared.wake() }
+    }
+
+    private static let resumeAfterRelaunchKey = "resumeAfterRelaunch"
 
     /// Called on quit: snapshot every transfer synchronously so nothing written is lost.
     func prepareForQuit() {

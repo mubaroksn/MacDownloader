@@ -121,7 +121,7 @@ struct FolderCard: View {
     private var badges: [(symbol: String, tint: Color)] {
         var result: [(String, Color)] = [(category.symbol, Color.white)]
         if items.contains(where: { $0.status == .downloading }) { result.append(("arrow.down", Theme.blue)) }
-        if items.contains(where: { $0.status == .failed }) { result.append(("exclamationmark", Theme.red)) }
+        if items.contains(where: { $0.hasFailed }) { result.append(("exclamationmark", Theme.red)) }
         else if !items.isEmpty && items.allSatisfy({ $0.status == .completed }) { result.append(("checkmark", Theme.green)) }
         return result.map { (symbol: $0.0, tint: $0.1) }
     }

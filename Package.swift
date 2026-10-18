@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "MacDownloader",
+    name: "wwwrap",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "MacDownloader", targets: ["MacDownloader"]),
+        .executable(name: "wwwrap", targets: ["wwwrap"]),
         .library(name: "DownloadCore", targets: ["DownloadCore"]),
     ],
     targets: [
@@ -16,9 +16,9 @@ let package = Package(
         ),
         // The SwiftUI/AppKit app: queue, persistence, power management, menu bar, browser ingest.
         .executableTarget(
-            name: "MacDownloader",
+            name: "wwwrap",
             dependencies: ["DownloadCore"],
-            path: "Sources/MacDownloader",
+            path: "Sources/wwwrap",
             linkerSettings: [.linkedFramework("IOKit")]
         ),
         // Command-line throughput/CPU benchmark for the engine (used by CI and for tuning).

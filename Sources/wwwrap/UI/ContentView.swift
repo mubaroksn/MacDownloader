@@ -33,10 +33,10 @@ enum SidebarFilter: Hashable {
     func matches(_ item: DownloadItem) -> Bool {
         switch self {
         case .all: return true
-        case .active: return item.status == .downloading || item.status == .queued
+        case .active: return item.status == .downloading || item.status == .queued || item.waitingForNetwork
         case .paused: return item.status == .paused
         case .completed: return item.status == .completed
-        case .failed: return item.status == .failed
+        case .failed: return item.hasFailed
         case .category(let c): return item.category == c
         }
     }
@@ -130,7 +130,7 @@ struct TopBar: View {
         HStack(spacing: 10) {
             Color.clear.frame(width: 70) // traffic lights
             AppMark()
-            Text("MacDownloader")
+            Text("wwwrap")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
             Spacer()

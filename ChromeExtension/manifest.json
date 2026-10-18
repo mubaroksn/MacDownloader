@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "MacDownloader",
+  "name": "wwwrap",
   "version": "1.2.0",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
@@ -19,7 +19,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "MacDownloader",
+    "default_title": "wwwrap",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

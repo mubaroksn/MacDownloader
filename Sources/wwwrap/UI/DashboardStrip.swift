@@ -24,6 +24,7 @@ struct DashboardStrip: View {
 
     private var activeDetail: String {
         var parts: [String] = []
+        if manager.waitingForNetworkCount > 0 { parts.append(L("%ld menunggu internet", manager.waitingForNetworkCount)) }
         if manager.queuedCount > 0 { parts.append(L("%ld antre", manager.queuedCount)) }
         if manager.pausedCount > 0 { parts.append(L("%ld dijeda", manager.pausedCount)) }
         return parts.isEmpty ? L("Tidak ada antrean") : parts.joined(separator: " · ")

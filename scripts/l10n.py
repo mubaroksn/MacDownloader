@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Translations for MacDownloader (Indonesian source text, English translation).
+"""Translations for wwwrap (Indonesian source text, English translation).
 
 Source of truth: Localization/en.json
     { "app":       { "<Indonesian text>": "<English text>", ... },
@@ -19,7 +19,7 @@ Checks
   - user-visible text that was left unwrapped in SwiftUI views (Text("..."), Button("..."), ...)
 
 Generated
-  - Sources/MacDownloader/Localization/Strings.generated.swift
+  - Sources/wwwrap/Localization/Strings.generated.swift
   - ChromeExtension/strings.js
 """
 import json
@@ -29,8 +29,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOG = os.path.join(ROOT, "Localization", "en.json")
-SWIFT_DIRS = ["Sources/MacDownloader", "Sources/DownloadCore"]
-SWIFT_OUT = os.path.join(ROOT, "Sources/MacDownloader/Localization/Strings.generated.swift")
+SWIFT_DIRS = ["Sources/wwwrap", "Sources/DownloadCore"]
+SWIFT_OUT = os.path.join(ROOT, "Sources/wwwrap/Localization/Strings.generated.swift")
 EXT_DIR = os.path.join(ROOT, "ChromeExtension")
 EXT_OUT = os.path.join(EXT_DIR, "strings.js")
 
@@ -41,7 +41,7 @@ UI_CONTEXT = re.compile(
     r"|\b(?:title|detail|subtitle|message|label|body)\s*[:=]\s*$"
 )
 # Literals that are never shown to users or are identical in both languages.
-NEUTRAL = {"MacDownloader", "Download", "GitHub", "Chromium", "Firefox"}
+NEUTRAL = {"wwwrap", "Download", "GitHub", "Chromium", "Firefox"}
 SPEC = re.compile(r"%(?:\d+\$)?[-+ 0#]*\d*(?:\.\d+)?(?:lld|ld|d|@|f|s|%)")
 
 

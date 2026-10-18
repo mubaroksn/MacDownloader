@@ -5,7 +5,7 @@ const STRINGS_EN = {
   "Aplikasi terhubung": "App connected",
   "Aplikasi tidak berjalan": "App not running",
   "Butuh izin akses situs": "Needs site access permission",
-  "Download dengan MacDownloader": "Download with MacDownloader",
+  "Download dengan wwwrap": "Download with wwwrap",
   "Izinkan akses ke semua situs": "Allow access to all sites",
   "Klik kanan pada link →": "Right-click a link →",
   "Memeriksa aplikasi…": "Checking the app…",

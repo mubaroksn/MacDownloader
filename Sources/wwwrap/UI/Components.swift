@@ -93,16 +93,21 @@ struct CountBadge: View {
 
 struct StatusPill: View {
     let status: DownloadStatus
+    /// Failed only because the internet dropped; shown as waiting, not as an error.
+    var waiting = false
+
     var body: some View {
+        let color = waiting ? Theme.orange : status.color
         HStack(spacing: 6) {
-            Circle().fill(status.color).frame(width: 6, height: 6)
-            Text(status.label)
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(waiting ? L("Menunggu") : status.label)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.textPrimary)
         }
         .padding(.horizontal, 9)
         .frame(height: 22)
-        .background(Capsule().fill(status.color.opacity(0.12)))
+        .background(Capsule().fill(color.opacity(0.12)))
+        .help(waiting ? L("Menunggu internet. Dilanjutkan otomatis.") : "")
     }
 }
 
@@ -201,7 +206,7 @@ struct WindowConfigurator: NSViewRepresentable {
             window.titlebarSeparatorStyle = .none
             window.styleMask.insert(.fullSizeContentView)
             if window.toolbar == nil {
-                let toolbar = NSToolbar(identifier: "MacDownloaderToolbar")
+                let toolbar = NSToolbar(identifier: "WwwrapToolbar")
                 toolbar.showsBaselineSeparator = false
                 window.toolbar = toolbar
             }
