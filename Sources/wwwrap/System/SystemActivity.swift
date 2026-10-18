@@ -25,7 +25,7 @@ final class SystemActivity {
             let result = IOPMAssertionCreateWithName(
                 "PreventUserIdleSystemSleep" as CFString,
                 IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                L("MacDownloader sedang mengunduh file") as CFString,
+                L("wwwrap sedang mengunduh file") as CFString,
                 &assertionID)
             holdsAssertion = result == kIOReturnSuccess
         } else if !wantAssertion && holdsAssertion {

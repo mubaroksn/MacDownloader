@@ -79,11 +79,11 @@ final class LocalServer: ObservableObject {
 
         switch (request.method, request.path) {
         case ("GET", "/ping"):
-            send(conn, status: "200 OK", json: ["ok": true, "app": "MacDownloader", "version": 2])
+            send(conn, status: "200 OK", json: ["ok": true, "app": "wwwrap", "version": 2])
         case ("POST", "/hello"):
             let obj = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any]
             markExtensionSeen(browser: obj?["browser"] as? String)
-            send(conn, status: "200 OK", json: ["ok": true, "app": "MacDownloader", "version": 2, "lang": Lang.code])
+            send(conn, status: "200 OK", json: ["ok": true, "app": "wwwrap", "version": 2, "lang": Lang.code])
         case ("POST", "/add"):
             guard let obj = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any],
                   let url = obj["url"] as? String else {

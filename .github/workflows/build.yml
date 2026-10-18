@@ -105,41 +105,95 @@ jobs:
             --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET" --approval-timeout 900000 2>&1 | tail -n 15 > sign.log
           xpi=$(ls signed/*.xpi 2>/dev/null | head -n 1)
           if [[ -n "$xpi" ]]; then
-            cp "$xpi" "dist/MacDownloader-Firefox-$VERSION.xpi"
+            cp "$xpi" "dist/wwwrap-Firefox-$VERSION.xpi"
             echo "::notice title=Firefox sign::signed $(basename "$xpi")"
           else
             msg=$(sed -e 's/%/%25/g' sign.log | awk '{printf "%s%%0A", $0}')
             echo "::warning title=Firefox sign failed::$msg"
           fi
 
-      - name: Installer script (install.sh from local DMG + latest release)
+      - name: Installer script (latest release, then this build over it)
         run: |
           fail() { echo "::error title=install.sh::$1"; exit 1; }
-          DEST="$RUNNER_TEMP/apps-local"
-          MACDL_DMG="$(ls dist/*.dmg | head -n 1)" MACDL_DEST="$DEST" MACDL_NO_OPEN=1 bash install.sh || fail "install from local DMG failed"
-          [ -x "$DEST/MacDownloader.app/Contents/MacOS/MacDownloader" ] || fail "app missing after install"
-          xattr -p com.apple.quarantine "$DEST/MacDownloader.app" >/dev/null 2>&1 && fail "app still has the quarantine flag"
-          codesign -dv "$DEST/MacDownloader.app" 2>&1 | grep -q "Signature=adhoc" || fail "app is not ad-hoc signed"
-          echo "::notice title=install.sh::local DMG installed, ad-hoc signed, no quarantine flag"
-          DEST2="$RUNNER_TEMP/apps-latest"
-          MACDL_DEST="$DEST2" MACDL_NO_OPEN=1 bash install.sh > install.log 2>&1 \
-            || fail "install of the latest GitHub release failed: $(tail -n 5 install.log | tr '\n' ' ')"
-          v=$(defaults read "$DEST2/MacDownloader.app/Contents/Info" CFBundleShortVersionString)
-          echo "::notice title=install.sh::latest release downloaded and installed (v$v)"
+          DEST="$RUNNER_TEMP/apps"
+          export WWWRAP_REPO="${{ github.repository }}" WWWRAP_DEST="$DEST" WWWRAP_NO_OPEN=1
 
-      - name: Smoke test (launch app + real multi-connection download)
+          # 1. Latest published release (before 1.7.0 it is still called MacDownloader).
+          bash install.sh > install-latest.log 2>&1 \
+            || fail "install of the latest GitHub release failed: $(tail -n 5 install-latest.log | tr '\n' ' ')"
+          latest=$(sed -n 's/^INSTALLED_APP=//p' install-latest.log)
+          v=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$latest/Contents/Info.plist")
+          echo "::notice title=install.sh::latest release installed: $(basename "$latest") v$v"
+
+          # 2. This build on top: replaces the app and retires a MacDownloader.app left from step 1.
+          WWWRAP_DMG="$(ls dist/*.dmg | head -n 1)" bash install.sh > install-local.log 2>&1 \
+            || fail "install from local DMG failed: $(tail -n 5 install-local.log | tr '\n' ' ')"
+          [ -x "$DEST/wwwrap.app/Contents/MacOS/wwwrap" ] || fail "wwwrap.app missing after install"
+          [ -e "$DEST/MacDownloader.app" ] && fail "old MacDownloader.app was not removed"
+          xattr -p com.apple.quarantine "$DEST/wwwrap.app" >/dev/null 2>&1 && fail "app still has the quarantine flag"
+          codesign -dv "$DEST/wwwrap.app" 2>&1 | grep -q "Signature=adhoc" || fail "app is not ad-hoc signed"
+          echo "::notice title=install.sh::this build installed over it, ad-hoc signed, no quarantine flag, old app retired"
+
+      - name: Migration from MacDownloader (settings + download list)
         run: |
-          set -u
-          fail() { echo "::error title=Smoke test failed::$1"; pkill -x MacDownloader || true; exit 1; }
-          note() { echo "::notice title=Smoke test::$1"; echo "$1"; }
-
-          # Pinned to Indonesian: the checks below expect the Indonesian folder names (Downloads/Lainnya).
-          "dist/MacDownloader.app/Contents/MacOS/MacDownloader" -appLanguage id > app.log 2>&1 &
+          fail() { echo "::error title=Migration::$1"; pkill -x wwwrap || true; exit 1; }
+          OLD="$HOME/Library/Application Support/MacDownloader"
+          mkdir -p "$OLD"
+          printf '%s' '[{"id":"5F1B1A9E-3C7B-4D8E-9A51-2B6C7D8E9F01","url":"https://example.com/lama.zip","fileName":"lama.zip","category":"archive","status":"completed","totalBytes":10,"downloadedBytes":10,"supportsRanges":false,"segments":[],"addedAt":0,"headers":{}}]' > "$OLD/downloads.json"
+          defaults write com.mubaroksn.macdownloader connectionsPerDownload -int 12
+          "dist/wwwrap.app/Contents/MacOS/wwwrap" -appLanguage id > app-migrate.log 2>&1 &
           for i in $(seq 1 20); do
             curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q '"ok":true' && break
             sleep 1
           done
-          pgrep -x MacDownloader >/dev/null || fail "app exited on launch: $(tail -n 20 app.log | tr '\n' ' ')"
+          sleep 2
+          pkill -x wwwrap || true
+          sleep 2
+          [ "$(defaults read com.mubaroksn.wwwrap connectionsPerDownload 2>/dev/null)" = "12" ] || fail "settings were not migrated"
+          grep -q "lama.zip" "$HOME/Library/Application Support/wwwrap/downloads.json" || fail "download list was not migrated"
+          [ -f "$OLD/downloads.json" ] || fail "old folder should be left in place (unpacked extensions load from it)"
+          defaults delete com.mubaroksn.wwwrap connectionsPerDownload
+          echo "::notice title=Migration::MacDownloader settings and download list carried over to wwwrap"
+
+      - name: In-app update (an older copy updates itself from this DMG)
+        run: |
+          fail() { echo "::error title=In-app update::$1"; pkill -x wwwrap || true; exit 1; }
+          DIR="$RUNNER_TEMP/upd"
+          rm -rf "$DIR"; mkdir -p "$DIR"
+          ditto dist/wwwrap.app "$DIR/wwwrap.app"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.0.1" "$DIR/wwwrap.app/Contents/Info.plist"
+          codesign --force --deep --sign - "$DIR/wwwrap.app"
+          DMG="$PWD/$(ls dist/*.dmg | head -n 1)"
+          "$DIR/wwwrap.app/Contents/MacOS/wwwrap" -appLanguage id -updateTestDMG "$DMG" > app-update.log 2>&1 &
+          v=""
+          for i in $(seq 1 90); do
+            v=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$DIR/wwwrap.app/Contents/Info.plist" 2>/dev/null || true)
+            [ "$v" = "$VERSION" ] && break
+            sleep 1
+          done
+          [ "$v" = "$VERSION" ] || fail "app was not replaced (still ${v:-missing}): $(tail -n 15 app-update.log | tr '\n' ' ')"
+          codesign --verify --deep --strict "$DIR/wwwrap.app" || fail "updated app fails the signature check"
+          for i in $(seq 1 20); do pgrep -f "$DIR/wwwrap.app/Contents/MacOS/wwwrap" >/dev/null && break; sleep 1; done
+          pgrep -f "$DIR/wwwrap.app/Contents/MacOS/wwwrap" >/dev/null || fail "updated app did not relaunch"
+          leftovers=$(ls -A "$DIR" | grep -v '^wwwrap.app$' || true)
+          [ -z "$leftovers" ] || fail "leftover files after the update: $leftovers"
+          echo "::notice title=In-app update::0.0.1 -> $VERSION: downloaded, verified, swapped and relaunched"
+          pkill -x wwwrap || true
+          sleep 2
+
+      - name: Smoke test (launch app + real multi-connection download)
+        run: |
+          set -u
+          fail() { echo "::error title=Smoke test failed::$1"; pkill -x wwwrap || true; exit 1; }
+          note() { echo "::notice title=Smoke test::$1"; echo "$1"; }
+
+          # Pinned to Indonesian: the checks below expect the Indonesian folder names (Downloads/Lainnya).
+          "dist/wwwrap.app/Contents/MacOS/wwwrap" -appLanguage id > app.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q '"ok":true' && break
+            sleep 1
+          done
+          pgrep -x wwwrap >/dev/null || fail "app exited on launch: $(tail -n 20 app.log | tr '\n' ' ')"
           curl -s -H "X-MacDL-Client: ci" http://127.0.0.1:9614/ping | grep -q '"ok":true' || fail "local server not answering"
           note "app launched, local server answers /ping"
 
@@ -154,17 +208,17 @@ jobs:
 
           OUT="$HOME/Downloads/Lainnya/10Mb.dat"
           for i in $(seq 1 120); do [ -f "$OUT" ] && break; sleep 1; done
-          [ -f "$OUT" ] || fail "download did not finish in 120s. state: $(cat "$HOME/Library/Application Support/MacDownloader/downloads.json" 2>/dev/null | head -c 600)"
+          [ -f "$OUT" ] || fail "download did not finish in 120s. state: $(cat "$HOME/Library/Application Support/wwwrap/downloads.json" 2>/dev/null | head -c 600)"
           cmp -s "$OUT" reference.dat || fail "downloaded file differs from reference ($(stat -f%z "$OUT") vs $(stat -f%z reference.dat) bytes)"
           note "downloaded 10 MB via app into Downloads/Lainnya, byte-identical to curl copy (took ~${i}s)"
 
           # Browser hand-off: the app must refuse links it cannot fetch (so the browser keeps them)…
           r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
-            -d '{"url":"https://github.com/mubaroksn/MacDownloader/raw/main/does-not-exist.bin","handoff":true}' http://127.0.0.1:9614/add)
+            -d '{"url":"https://github.com/${{ github.repository }}/raw/main/does-not-exist.bin","handoff":true}' http://127.0.0.1:9614/add)
           echo "$r" | grep -q '"accepted":false' || fail "hand-off of a 404 link should be refused, got: $r"
           # …and accept share links it can resolve (GitHub blob page -> raw file).
           r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
-            -d '{"url":"https://github.com/mubaroksn/MacDownloader/blob/main/Package.swift","handoff":true}' http://127.0.0.1:9614/add)
+            -d '{"url":"https://github.com/${{ github.repository }}/blob/main/Package.swift","handoff":true}' http://127.0.0.1:9614/add)
           echo "$r" | grep -q '"accepted":true' || fail "hand-off of a GitHub blob link should be accepted, got: $r"
           OUT2="$HOME/Downloads/Lainnya/Package.swift"
           for i in $(seq 1 60); do [ -f "$OUT2" ] && break; sleep 1; done
@@ -180,18 +234,18 @@ jobs:
           if [ "${n:-0}" -ge 10 ]; then
             note "Google Drive folder: $n files downloaded into $(find "$HOME/Downloads" -maxdepth 1 -name '*Alta Vista*' | head -1)"
           else
-            echo "::warning title=Drive folder::only ${n:-0} files after 150s (Google may rate-limit CI runners); state: $(python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/Library/Application Support/MacDownloader/downloads.json'))); print([ (i['fileName'], i['status'], i.get('errorMessage')) for i in d][:6])")"
+            echo "::warning title=Drive folder::only ${n:-0} files after 150s (Google may rate-limit CI runners); state: $(python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/Library/Application Support/wwwrap/downloads.json'))); print([ (i['fileName'], i['status'], i.get('errorMessage')) for i in d][:6])")"
           fi
           r=$(curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" -d '{"browser":"CI"}' http://127.0.0.1:9614/hello)
           echo "$r" | grep -q '"ok":true' || fail "/hello heartbeat failed: $r"
 
-          pgrep -x MacDownloader >/dev/null || fail "app crashed during download"
-          pkill -x MacDownloader || true
+          pgrep -x wwwrap >/dev/null || fail "app crashed during download"
+          pkill -x wwwrap || true
 
       - name: UI screenshots (light + dark)
         continue-on-error: true
         run: |
-          APP="dist/MacDownloader.app/Contents/MacOS/MacDownloader"
+          APP="dist/wwwrap.app/Contents/MacOS/wwwrap"
           SHOTS="$RUNNER_TEMP/shots"; mkdir -p "$SHOTS"
           add() { curl -s -X POST -H "X-MacDL-Client: ci" -H "Content-Type: application/json" \
                     -d "{\"url\":\"$1\",\"filename\":\"$2\"}" http://127.0.0.1:9614/add >/dev/null; }
@@ -205,51 +259,51 @@ jobs:
           add "$F/1Mb.dat" "Podcast-Episode-12.mp3"
           osascript -e 'tell application "Finder" to activate' >/dev/null 2>&1 || true
           sleep 1
-          printf '%s' "https://github.com/mubaroksn/MacDownloader/releases/download/v1.1.0/MacDownloader-1.1.0.dmg" | pbcopy
+          printf '%s' "https://github.com/${{ github.repository }}/releases/download/v1.1.0/wwwrap-1.1.0.dmg" | pbcopy
           add "$F/does-not-exist.zip" "Arsip-Proyek.zip"
           sleep 10
           add "$F/10Gb.dat" "Film-Liburan-Bali-4K.mp4"
           add "$F/10Gb.dat" "Xcode-Installer.dmg"
           sleep 20
-          python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/Library/Application Support/MacDownloader/downloads.json'))); print('::notice title=State::' + ' | '.join('%s %s %s/%s segs=%d err=%s' % (i['fileName'], i['status'], i['downloadedBytes'], i['totalBytes'], len(i['segments']), i.get('errorMessage')) for i in d))"
-          pmset -g assertions | grep -i -A1 "MacDownloader" | head -n 4 | tr '\n' ' ' | sed 's/^/::notice title=Power assertion::/' ; echo
+          python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/Library/Application Support/wwwrap/downloads.json'))); print('::notice title=State::' + ' | '.join('%s %s %s/%s segs=%d err=%s' % (i['fileName'], i['status'], i['downloadedBytes'], i['totalBytes'], len(i['segments']), i.get('errorMessage')) for i in d))"
+          pmset -g assertions | grep -i -A1 "wwwrap" | head -n 4 | tr '\n' ' ' | sed 's/^/::notice title=Power assertion::/' ; echo
           sleep 4
-          pkill -x MacDownloader || true
+          pkill -x wwwrap || true
           sleep 3
-          pmset -g assertions | grep -qi "MacDownloader" && echo "::warning title=Power assertion::still held after quit" || echo "::notice title=Power assertion::released after quit"
+          pmset -g assertions | grep -qi "wwwrap" && echo "::warning title=Power assertion::still held after quit" || echo "::notice title=Power assertion::released after quit"
           sleep 2
 
           "$APP" -appLanguage id -appearance dark -snapshotPath "$SHOTS/dark.png" -snapshotDelay 8 > app-dark.log 2>&1 &
           sleep 12
-          pkill -x MacDownloader || true
+          pkill -x wwwrap || true
           sleep 2
           "$APP" -appLanguage id -appearance light -startPage browser -snapshotPath "$SHOTS/browser.png" -snapshotDelay 6 > app-browser.log 2>&1 &
           sleep 10
-          pkill -x MacDownloader || true
+          pkill -x wwwrap || true
           for section in downloads general about; do
             "$APP" -appLanguage id -appearance light -startPage settings -settingsSection $section -snapshotPath "$SHOTS/settings-$section.png" -snapshotDelay 6 > app-settings.log 2>&1 &
             sleep 9
-            pkill -x MacDownloader || true
+            pkill -x wwwrap || true
             sleep 1
           done
           "$APP" -appLanguage id -appearance dark -startPage settings -settingsSection downloads -snapshotPath "$SHOTS/settings-dark.png" -snapshotDelay 6 > app-settings.log 2>&1 &
           sleep 9
-          pkill -x MacDownloader || true
+          pkill -x wwwrap || true
           sleep 1
           # English
           "$APP" -appLanguage en -appearance light -snapshotPath "$SHOTS/en-downloads.png" -snapshotMenuBarPath "$SHOTS/en-menubar.png" -snapshotDelay 8 > app-en.log 2>&1 &
           sleep 12
-          pkill -x MacDownloader || true
+          pkill -x wwwrap || true
           sleep 1
           for section in appearance downloads; do
             "$APP" -appLanguage en -appearance light -startPage settings -settingsSection $section -snapshotPath "$SHOTS/en-settings-$section.png" -snapshotDelay 6 > app-en.log 2>&1 &
             sleep 9
-            pkill -x MacDownloader || true
+            pkill -x wwwrap || true
             sleep 1
           done
           "$APP" -appLanguage en -appearance light -startPage browser -snapshotPath "$SHOTS/en-browser.png" -snapshotDelay 6 > app-en.log 2>&1 &
           sleep 9
-          pkill -x MacDownloader || true
+          pkill -x wwwrap || true
 
           ls -la "$SHOTS"
           cat app-light.log app-dark.log | tail -n 20
@@ -266,7 +320,7 @@ jobs:
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: MacDownloader-${{ env.VERSION }}-build${{ env.BUILD }}
+          name: wwwrap-${{ env.VERSION }}-build${{ env.BUILD }}
           path: |
             dist/*.dmg
             dist/*.zip
@@ -278,7 +332,7 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
-          name: MacDownloader ${{ env.VERSION }}
+          name: wwwrap ${{ env.VERSION }}
           files: |
             dist/*.dmg
             dist/*.zip
@@ -288,7 +342,8 @@ jobs:
             ## Pasang
             Cara tercepat — buka Terminal, tempel, Enter:
             ```
-            curl -fsSL https://raw.githubusercontent.com/mubaroksn/MacDownloader/main/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/mubaroksn/wwwrap/main/install.sh | bash
             ```
             Atau unduh `.dmg` di bawah, tarik ke Applications. Saat pertama dibuka macOS akan menolak (app belum dinotarisasi Apple):
             buka **System Settings → Privacy & Security** → **Open Anyway**.
+            Sudah terpasang? Update cukup dari dalam app: banner di halaman Download, atau **Pengaturan › Tentang › Update sekarang**.

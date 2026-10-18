@@ -1,9 +1,9 @@
-# MacDownloader architecture
+# wwwrap architecture
 
 ## Layout
 
 ```
-Package.swift                     SwiftPM: DownloadCore (library) + MacDownloader (app) + tests
+Package.swift                     SwiftPM: DownloadCore (library) + wwwrap (app) + tests
 Sources/
   DownloadCore/                   UI-free engine. No AppKit/SwiftUI. Unit-testable.
     Models.swift                  SegmentState, RemoteRequest, RemoteResource, TransferProgress
@@ -15,7 +15,7 @@ Sources/
     FileSink.swift                F_PREALLOCATE + ftruncate + concurrent pwrite at offsets
     HTTPByteStream.swift          URLSession delegate → AsyncThrowingStream<Data> with backpressure
     RangeDownloader.swift         TaskGroup coordinator: workers + supervisor
-  MacDownloader/
+  wwwrap/
     App/                          @main, scenes (window, Settings, MenuBarExtra), CI snapshot hooks
     Downloads/                    DownloadManager (queue, persistence, sampling), DownloadItem
     Ingest/                       DownloadRequest + DownloadDispatching, LocalServer (Chromium bridge)
@@ -86,6 +86,34 @@ puts `.id(appLanguage)` on the window and menu bar roots, so a change rebuilds t
 without a restart. DownloadCore error messages go through `EngineLocalization.lookup`,
 installed by the app at launch. The extension follows the app: `/hello` replies carry `lang`.
 Installs from before 1.6 are pinned to Indonesian on first launch.
+
+## Network outages
+
+The engine retries each connection for about three minutes. A download that still fails with
+a connectivity error (no route, DNS, dropped/timed-out connection) is marked
+`waitingForNetwork` instead of failed; server-side hiccups (5xx, cut streams) get the same
+treatment up to six times. `NetworkWatcher` then probes `captive.apple.com` (5 s, backing off
+to 60 s) and resumes waiting items when it answers; each item also has its own backoff
+(5 s → 5 min), reset whenever it made real progress. `NWPathMonitor` only triggers an
+immediate probe when Wi-Fi/Ethernet returns: on Starlink the path stays "satisfied" while the
+uplink is down, so the path alone can't be trusted.
+
+## In-app update
+
+`AppUpdater` downloads the release DMG with `RangeDownloader`, mounts it, checks bundle id,
+version and `codesign --verify --deep --strict`, stages the new bundle next to the running one
+(same volume) and starts a `/bin/sh` helper that waits for the app to exit, swaps the bundles
+(keeping the old one until the new one is in place), clears quarantine and relaunches. IDs of
+running downloads are saved and resumed after relaunch. CI exercises the whole path with
+`-updateTestDMG`.
+
+## Rename (1.7.0)
+
+MacDownloader became wwwrap: bundle id `com.mubaroksn.wwwrap`, support folder
+`~/Library/Application Support/wwwrap`. `LegacyMigration` copies the old defaults domain and
+`downloads.json` on first launch (the old folder stays, since unpacked extensions load from it),
+then quits and trashes the old app. The extension protocol (`X-MacDL-Client`, port 9614) and
+the Firefox add-on id are unchanged so existing extensions keep working.
 
 ## Power
 

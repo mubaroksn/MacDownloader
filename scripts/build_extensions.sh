@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Packages the browser extension for every browser from the single ChromeExtension/ source.
 #
-#   dist/MacDownloader-ChromeExtension-<v>.zip   Chrome, Edge, Brave, Arc, Dia, Opera, Vivaldi
-#   dist/MacDownloader-Firefox-<v>.zip           Firefox (unsigned; CI signs it into an .xpi
+#   dist/wwwrap-ChromeExtension-<v>.zip   Chrome, Edge, Brave, Arc, Dia, Opera, Vivaldi
+#   dist/wwwrap-Firefox-<v>.zip           Firefox (unsigned; CI signs it into an .xpi
 #                                                when AMO_JWT_ISSUER / AMO_JWT_SECRET are set)
 #
 # Firefox differences live only in the manifest: an event-page background instead of a
@@ -33,6 +33,7 @@ if browser == "firefox":
     m["background"] = {"scripts": ["strings.js", "i18n.js", "background.js"]}
     m["browser_specific_settings"] = {
         "gecko": {
+            # Kept from the MacDownloader days: changing it would make Firefox see a different add-on.
             "id": "macdownloader@mubaroksn.github.io",
             "strict_min_version": "140.0",
             "data_collection_permissions": {"required": ["none"]},
@@ -48,10 +49,10 @@ PY
 CHROME_DIR="$(stage ChromeExtension chrome)"
 FIREFOX_DIR="$(stage FirefoxExtension firefox)"
 
-rm -f "$OUT/MacDownloader-ChromeExtension-$VERSION.zip" "$OUT/MacDownloader-Firefox-$VERSION.zip"
-(cd "$OUT/ext" && zip -qr "$OUT/MacDownloader-ChromeExtension-$VERSION.zip" ChromeExtension)
+rm -f "$OUT/wwwrap-ChromeExtension-$VERSION.zip" "$OUT/wwwrap-Firefox-$VERSION.zip"
+(cd "$OUT/ext" && zip -qr "$OUT/wwwrap-ChromeExtension-$VERSION.zip" ChromeExtension)
 # Firefox wants manifest.json at the archive root.
-(cd "$FIREFOX_DIR" && zip -qr "$OUT/MacDownloader-Firefox-$VERSION.zip" .)
+(cd "$FIREFOX_DIR" && zip -qr "$OUT/wwwrap-Firefox-$VERSION.zip" .)
 
 echo "Extensions:"
-ls -lh "$OUT"/MacDownloader-*Extension*-"$VERSION".zip "$OUT"/MacDownloader-Firefox-"$VERSION".zip
+ls -lh "$OUT"/wwwrap-*Extension*-"$VERSION".zip "$OUT"/wwwrap-Firefox-"$VERSION".zip

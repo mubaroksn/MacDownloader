@@ -24,6 +24,7 @@ struct DownloadsPage: View {
     @Binding var sidebarVisible: Bool
     let onDelete: (Set<UUID>) -> Void
     @AppStorage("sortOrder") private var sort: SortOrder = .newest
+    @ObservedObject private var updates = UpdateChecker.shared
 
     private var visibleItems: [DownloadItem] {
         var list = manager.items.filter { filter.matches($0) }
@@ -62,6 +63,9 @@ struct DownloadsPage: View {
                 VStack(alignment: .leading, spacing: 30) {
                     if search.isEmpty {
                         DashboardStrip()
+                    }
+                    if let version = updates.availableVersion, !updates.bannerDismissed {
+                        UpdateBanner(version: version)
                     }
                     if let offer = ui.clipboardOffer {
                         ClipboardOfferBanner(url: offer)
@@ -163,7 +167,7 @@ struct DownloadsPage: View {
             .fixedSize()
 
             let canResume = manager.items.contains { [.paused, .failed].contains($0.status) }
-            let canPause = manager.items.contains { [.downloading, .queued].contains($0.status) }
+            let canPause = manager.items.contains { [.downloading, .queued].contains($0.status) || $0.waitingForNetwork }
             if canPause {
                 Button { manager.pauseAll() } label: { Label(L("Jeda semua"), systemImage: "pause.fill") }
                     .buttonStyle(SecondaryButtonStyle())
@@ -303,7 +307,7 @@ struct FileRow: View {
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: Col.size, alignment: .leading)
             progressCell.frame(width: Col.progress, alignment: .leading)
-            StatusPill(status: item.status).frame(width: Col.status, alignment: .leading)
+            StatusPill(status: item.status, waiting: item.waitingForNetwork).frame(width: Col.status, alignment: .leading)
             actionsCell.frame(width: Col.actions, alignment: .trailing)
         }
         .padding(.horizontal, 18)
@@ -336,13 +340,13 @@ struct FileRow: View {
                     .truncationMode(.middle)
                 Group {
                     if item.status == .failed, let error = item.errorMessage {
-                        Text(error).foregroundStyle(Theme.red)
+                        Text(error).foregroundStyle(item.waitingForNetwork ? Theme.orange : Theme.red)
                     } else if item.status == .downloading && !item.supportsRanges && !item.segments.isEmpty {
                         // Server allows only one connection: the most common reason for "slow".
                         Text(L("1 koneksi · server tidak mendukung multi-koneksi"))
                             .foregroundStyle(Theme.orange)
                             .help((item.url.host ?? "").contains("takeout")
-                                  ? L("ZIP folder Google Drive hanya bisa 1 koneksi. Lebih cepat: salin link folder Drive-nya, MacDownloader akan mengunduh semua file secara paralel.")
+                                  ? L("ZIP folder Google Drive hanya bisa 1 koneksi. Lebih cepat: salin link folder Drive-nya, wwwrap akan mengunduh semua file secara paralel.")
                                   : L("Server ini tidak mengizinkan download bertahap, jadi kecepatannya terbatas satu koneksi."))
                     } else if item.status == .downloading && item.activeConnections > 0 {
                         Text(L("%ld koneksi · %@", item.activeConnections, item.url.host ?? ""))

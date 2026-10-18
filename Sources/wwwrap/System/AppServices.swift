@@ -61,8 +61,24 @@ final class UpdateChecker: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var lastChecked: Date?
 
-    static let repo = "mubaroksn/MacDownloader"
+    static let repo = "mubaroksn/wwwrap"
     static let releasesPage = URL(string: "https://github.com/\(repo)/releases/latest")!
+
+    /// The DMG attached to release `version`.
+    static func dmgURL(for version: String) -> URL {
+        URL(string: "https://github.com/\(repo)/releases/download/v\(version)/wwwrap-\(version).dmg")!
+    }
+
+    /// The downloads-page banner can be closed per version.
+    var bannerDismissed: Bool {
+        guard let v = availableVersion else { return true }
+        return UserDefaults.standard.string(forKey: "updateBannerDismissed") == v
+    }
+
+    func dismissBanner() {
+        UserDefaults.standard.set(availableVersion, forKey: "updateBannerDismissed")
+        objectWillChange.send()
+    }
     static let installCommand = "curl -fsSL https://raw.githubusercontent.com/\(repo)/main/install.sh | bash" // l10n-ignore
 
     var currentVersion: String {
@@ -96,9 +112,6 @@ final class UpdateChecker: ObservableObject {
                 let latest = String(final[range.upperBound...])
                 lastChecked = Date()
                 state = Self.isNewer(latest, than: currentVersion) ? .available(latest) : .upToDate
-                if case .available(let v) = state, !force {
-                    UIState.shared.flash(L("MacDownloader %@ tersedia. Buka Pengaturan › Tentang untuk update.", v))
-                }
             } catch {
                 state = .failed(L("Tidak bisa menghubungi GitHub"))
             }
@@ -162,7 +175,7 @@ enum MainWindow {
     @MainActor
     static func show(open: () -> Void) {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue.hasPrefix(MacDownloaderApp.mainWindowID) == true }) {
+        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue.hasPrefix(WwwrapApp.mainWindowID) == true }) {
             window.makeKeyAndOrderFront(nil)
         } else {
             open()

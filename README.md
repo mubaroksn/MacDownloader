@@ -1,22 +1,24 @@
-# MacDownloader
+# wwwrap
 
-Download manager untuk macOS ala IDM: native SwiftUI, universal (Apple Silicon + Intel), macOS 13 ke atas. Tampilan monokrom dengan mode terang dan gelap yang mengikuti setelan Mac.
+Download manager untuk macOS ala IDM (dulu bernama **MacDownloader**): native SwiftUI, universal (Apple Silicon + Intel), macOS 13 ke atas. Tampilan monokrom dengan mode terang dan gelap yang mengikuti setelan Mac.
 
-![MacDownloader, mode terang](docs/screenshot-light.png)
+![wwwrap, mode terang](docs/screenshot-light.png)
 
-![MacDownloader, mode gelap](docs/screenshot-dark.png)
+![wwwrap, mode gelap](docs/screenshot-dark.png)
 
 ## Fitur
 
 - **Download multi-koneksi.** File dipecah menjadi segmen yang diunduh paralel (default 8 koneksi, maksimal 32), masing-masing di koneksi TCP terpisah. Koneksi yang selesai lebih dulu mengambil alih setengah sisa segmen terbesar (work stealing), sehingga ujung download tidak tertahan oleh satu koneksi lambat.
 - **Langsung ke disk.** Data ditulis ke posisinya di satu file (`pwrite`) yang ruangnya sudah dipesan di awal. Tidak ada file part dan tidak ada proses penggabungan. Kalau disk tidak cukup, download langsung ditolak di awal.
 - **Pause/resume yang aman.** Progres tersimpan dan bisa dilanjutkan setelah restart. File di server divalidasi dengan `If-Range` (ETag/Last-Modified): kalau file di server berubah, download diulang, bukan disambung.
+- **Lanjut otomatis setelah internet putus.** Putus sebentar ditangani tiap koneksi sendiri. Kalau internet mati lebih lama, download menunggu (bukan gagal) dan dilanjutkan begitu internet kembali. App memeriksa internet sungguhan, bukan hanya status Wi-Fi, jadi tetap jalan di Starlink atau router yang uplink-nya mati.
 - **Tahan server yang membatasi.** Saat server menolak (429/503) atau koneksi gagal, jumlah koneksi dikurangi, lalu dinaikkan lagi bertahap saat server pulih.
 - **Hemat baterai.** Mac dicegah tidur hanya selama ada download aktif (layar tetap boleh mati), dan pembaruan tampilan hanya berjalan saat ada transfer.
 - **Ringkasan di atas daftar download:** kecepatan total dengan grafik semenit terakhir, jumlah download aktif dan antre, serta total yang terunduh hari ini.
 - **Mode kecepatan** Penuh, Hemat, dan Senyap untuk semua download sekaligus, supaya video call atau streaming tetap lancar. Batas Hemat dan Senyap bisa diatur di Pengaturan › Download. Batasnya berlaku di jaringan (server ikut melambat), bukan sekadar menunda penulisan ke disk.
 - **Ikon menu bar** untuk melihat progres, mengganti mode kecepatan, menjeda, atau melanjutkan download dengan cepat.
-- **Pengaturan** di dalam jendela utama (⌘,): Umum (folder, buka saat login, cegah tidur), Download (koneksi, antrean, batas kecepatan), Integrasi, Tampilan (terang/gelap/ikut sistem), dan Tentang (cek update dari GitHub).
+- **Pengaturan** di dalam jendela utama (⌘,): Umum (folder, buka saat login, cegah tidur), Download (koneksi, antrean, batas kecepatan), Integrasi, Tampilan (terang/gelap/ikut sistem), dan Tentang (cek update dan update satu klik).
+- **Update satu klik.** Versi baru diunduh dengan mesin download app sendiri, diperiksa (ID app, versi, tanda tangan), dipasang, lalu app dibuka lagi. Download yang sedang berjalan dilanjutkan.
 - **Dua bahasa: Indonesia dan English.** Pilih di Pengaturan › Tampilan (bawaan: ikut bahasa macOS). Ganti bahasa langsung berlaku tanpa restart, termasuk menu bar, notifikasi, pesan error, dan ekstensi browser.
 - **Antrian & kategori.** Ada batas download bersamaan, dan file otomatis masuk ke subfolder Video, Musik, Dokumen, Program, Arsip, Gambar, atau Lainnya.
 - **Integrasi browser** untuk Chrome, Edge, Brave, dan Arc: download diambil alih otomatis dan tersedia menu klik kanan. Cookie dan referrer ikut dikirim.
@@ -28,31 +30,33 @@ Detail teknis ada di [ARCHITECTURE.md](ARCHITECTURE.md).
 **Cara tercepat** — buka Terminal, tempel perintah ini, lalu Enter:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/mubaroksn/MacDownloader/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mubaroksn/wwwrap/main/install.sh | bash
 ```
 
-Script mengunduh rilis terbaru, memasangnya ke **Applications**, lalu membuka app. Tidak ada peringatan Gatekeeper karena file yang diunduh lewat `curl` tidak diberi tanda karantina. Jalankan perintah yang sama untuk update.
+Script mengunduh rilis terbaru, memasangnya ke **Applications**, lalu membuka app. Tidak ada peringatan Gatekeeper karena file yang diunduh lewat `curl` tidak diberi tanda karantina. Setelah terpasang, update cukup dari dalam app.
+
+Pindah dari **MacDownloader**: jalankan perintah di atas. MacDownloader lama ditutup dan dipindah ke Sampah, lalu pengaturan dan riwayat download ikut pindah saat wwwrap pertama dibuka. *Buka saat login* perlu dinyalakan lagi, dan macOS akan meminta izin notifikasi sekali lagi.
 
 **Manual lewat DMG**
 
-1. Unduh `MacDownloader-x.y.z.dmg` dari **Releases**.
-2. Buka DMG, lalu tarik **MacDownloader** ke **Applications**.
+1. Unduh `wwwrap-x.y.z.dmg` dari **Releases**.
+2. Buka DMG, lalu tarik **wwwrap** ke **Applications**.
 3. Pembukaan pertama: app ini ditandatangani ad-hoc tapi belum dinotarisasi Apple, jadi macOS menolaknya. Buka **System Settings → Privacy & Security**, gulir ke bawah, klik **Open Anyway**. (Di macOS 15 Sequoia ke atas, klik kanan → Open sudah tidak berlaku.)
-   Alternatif lewat Terminal: `xattr -dr com.apple.quarantine /Applications/MacDownloader.app`
+   Alternatif lewat Terminal: `xattr -dr com.apple.quarantine /Applications/wwwrap.app`
 
 ## Memasang ekstensi browser
 
-1. Di app, buka **MacDownloader → Settings → Browser**, lalu klik **Siapkan ekstensi**.
+1. Di app, buka halaman **Integrasi browser** (ikon globe), lalu klik **Siapkan ekstensi**.
 2. Di browser, buka `chrome://extensions` (Edge: `edge://extensions`) dan aktifkan **Developer mode**.
 3. Klik **Load unpacked**, lalu pilih folder `ChromeExtension` yang terbuka di Finder.
 
 ### Firefox
 
-1. Buka halaman **Releases** dan unduh `MacDownloader-Firefox-<versi>.xpi`.
+1. Buka halaman **Releases** dan unduh `wwwrap-Firefox-<versi>.xpi`.
 2. Seret file itu ke jendela Firefox (atau buka `about:addons` → ikon gerigi → **Install Add-on From File…**), lalu klik **Add**.
 3. Kalau popup ekstensi menampilkan tombol **Izinkan akses ke semua situs**, klik sekali.
 
-File `.xpi` ditandatangani Mozilla lewat CI (butuh secret `AMO_JWT_ISSUER` dan `AMO_JWT_SECRET`, kunci API gratis dari addons.mozilla.org). Tanpa itu, Release hanya berisi `MacDownloader-Firefox-<versi>.zip` yang bisa dipasang sementara lewat `about:debugging` → **Load Temporary Add-on**.
+File `.xpi` ditandatangani Mozilla lewat CI (butuh secret `AMO_JWT_ISSUER` dan `AMO_JWT_SECRET`, kunci API gratis dari addons.mozilla.org). Tanpa itu, Release hanya berisi `wwwrap-Firefox-<versi>.zip` yang bisa dipasang sementara lewat `about:debugging` → **Load Temporary Add-on**.
 
 App berkomunikasi dengan ekstensi melalui `127.0.0.1:9614` dan hanya bisa diakses dari Mac itu sendiri.
 
@@ -69,17 +73,17 @@ swift test             # unit + integration test engine
 scripts/build_app.sh   # hasil ada di dist/
 ```
 
-Untuk mengembangkan di Xcode: buka `Package.swift` langsung (File › Open). Xcode menampilkan target `MacDownloader`, `DownloadCore`, dan `DownloadCoreTests`.
+Untuk mengembangkan di Xcode: buka `Package.swift` langsung (File › Open). Xcode menampilkan target `wwwrap`, `DownloadCore`, dan `DownloadCoreTests`.
 
 ## Struktur
 
 | File | Isi |
 |---|---|
 | `Sources/DownloadCore/` | Engine tanpa UI: probe, segmentasi, transfer paralel, penulisan disk |
-| `Sources/MacDownloader/Downloads/` | Antrian, penyimpanan progres, notifikasi |
-| `Sources/MacDownloader/Ingest/` | Pintu masuk download (ekstensi browser, dll.) |
-| `Sources/MacDownloader/System/` | Manajemen daya (IOKit, App Nap) |
-| `Sources/MacDownloader/UI/` | Tampilan SwiftUI dan menu bar |
+| `Sources/wwwrap/Downloads/` | Antrian, penyimpanan progres, notifikasi |
+| `Sources/wwwrap/Ingest/` | Pintu masuk download (ekstensi browser, dll.) |
+| `Sources/wwwrap/System/` | Manajemen daya (IOKit, App Nap) |
+| `Sources/wwwrap/UI/` | Tampilan SwiftUI dan menu bar |
 | `Tests/DownloadCoreTests/` | Unit test dan tes end-to-end dengan server lokal |
 | `ChromeExtension/` | Ekstensi browser (Manifest V3) — satu sumber untuk Chromium & Firefox (`scripts/build_extensions.sh`) |
 

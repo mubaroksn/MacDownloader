@@ -93,15 +93,22 @@ struct DownloadItem: Identifiable, Codable, Equatable {
     var sourceURL: URL?
     /// Relative folder under the download folder (Drive folder downloads keep their structure).
     var subdirectory: String?
+    /// Failed because the connection dropped; resumed automatically once the internet is back.
+    var waitingForNetwork = false
 
     // Runtime-only values, not persisted.
     var speed: Double = 0
     var activeConnections = 0
+    /// Automatic network retries since the download last made real progress.
+    var networkRetries = 0
+    var bytesAtLastNetworkFailure: Int64 = 0
+    var nextNetworkRetry = Date.distantPast
 
     enum CodingKeys: String, CodingKey {
         case id, url, fileName, category, status, totalBytes, downloadedBytes,
              supportsRanges, segments, destinationPath, errorMessage, addedAt,
-             completedAt, headers, nameLocked, tempPath, validator, sourceURL, subdirectory
+             completedAt, headers, nameLocked, tempPath, validator, sourceURL, subdirectory,
+             waitingForNetwork
     }
 
     init(url: URL, fileName: String, category: FileCategory) {
@@ -131,7 +138,11 @@ struct DownloadItem: Identifiable, Codable, Equatable {
         validator = try c.decodeIfPresent(String.self, forKey: .validator)
         sourceURL = try c.decodeIfPresent(URL.self, forKey: .sourceURL)
         subdirectory = try c.decodeIfPresent(String.self, forKey: .subdirectory)
+        waitingForNetwork = try c.decodeIfPresent(Bool.self, forKey: .waitingForNetwork) ?? false
     }
+
+    /// Failed for good (not just waiting for the connection to come back).
+    var hasFailed: Bool { status == .failed && !waitingForNetwork }
 
     var progress: Double {
         guard totalBytes > 0 else { return 0 }

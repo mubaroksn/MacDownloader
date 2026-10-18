@@ -27,7 +27,7 @@ struct MenuBarPanel: View {
             HStack(spacing: 10) {
                 AppMark()
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("MacDownloader")
+                    Text("wwwrap")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(summary)
@@ -82,7 +82,7 @@ struct MenuBarPanel: View {
             Hairline()
 
             HStack(spacing: 8) {
-                if manager.items.contains(where: { [.downloading, .queued].contains($0.status) }) {
+                if manager.items.contains(where: { [.downloading, .queued].contains($0.status) || $0.waitingForNetwork }) {
                     Button { manager.pauseAll() } label: { Label(L("Jeda semua"), systemImage: "pause.fill") }
                         .buttonStyle(SecondaryButtonStyle())
                 } else if manager.items.contains(where: { [.paused, .failed].contains($0.status) }) {
@@ -114,7 +114,7 @@ struct MenuBarPanel: View {
     }
 
     private func showMainWindow() {
-        MainWindow.show { openWindow(id: MacDownloaderApp.mainWindowID) }
+        MainWindow.show { openWindow(id: WwwrapApp.mainWindowID) }
     }
 }
 
@@ -140,7 +140,7 @@ private struct MenuBarRow: View {
                 if item.status == .completed || item.status == .failed {
                     Text(item.status == .failed ? (item.errorMessage ?? L("Gagal")) : L("Selesai · %@", Format.bytes(item.totalBytes)))
                         .font(.system(size: 11))
-                        .foregroundStyle(item.status == .failed ? Theme.red : Theme.textSecondary)
+                        .foregroundStyle(item.status == .failed ? (item.waitingForNetwork ? Theme.orange : Theme.red) : Theme.textSecondary)
                         .lineLimit(1)
                 } else {
                     ProgressBar(value: item.progress, color: item.status.color)

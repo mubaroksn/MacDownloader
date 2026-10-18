@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>MacDownloader</string>
+    <string>wwwrap</string>
     <key>CFBundleDisplayName</key>
-    <string>MacDownloader</string>
+    <string>wwwrap</string>
     <key>CFBundleIdentifier</key>
-    <string>com.mubaroksn.macdownloader</string>
+    <string>com.mubaroksn.wwwrap</string>
     <key>CFBundleExecutable</key>
-    <string>MacDownloader</string>
+    <string>wwwrap</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>

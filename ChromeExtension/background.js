@@ -1,4 +1,4 @@
-// MacDownloader browser extension (Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera… and Firefox).
+// wwwrap browser extension (Chrome, Edge, Brave, Arc, Dia, Vivaldi, Opera… and Firefox).
 // One source for every browser: scripts/build_extensions.sh derives the Firefox manifest.
 //
 // Flow for every browser download:
@@ -134,7 +134,7 @@ function createMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "macdl-link",
-      title: t("Download dengan MacDownloader"),
+      title: t("Download dengan wwwrap"),
       contexts: ["link", "video", "audio", "image"],
     });
   });

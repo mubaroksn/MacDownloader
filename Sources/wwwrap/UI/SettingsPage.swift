@@ -334,7 +334,7 @@ private struct GeneralSettings: View {
             SettingsRow(title: L("Buka saat login"),
                         detail: login.needsApproval
                             ? L("Menunggu izin di System Settings › General › Login Items.")
-                            : (login.lastError ?? L("MacDownloader berjalan di latar saat Mac menyala, siap menerima download dari browser."))) {
+                            : (login.lastError ?? L("wwwrap berjalan di latar saat Mac menyala, siap menerima download dari browser."))) {
                 HStack(spacing: 8) {
                     if login.needsApproval {
                         Button(L("Buka System Settings")) { login.openSystemSettings() }
@@ -446,7 +446,7 @@ private struct IntegrationSettings: View {
     private var status: (title: String, detail: String) {
         if server.extensionConnected {
             return (L("Ekstensi terhubung") + (server.extensionBrowser.map { " · \($0)" } ?? ""),
-                    L("Download di browser otomatis diambil alih MacDownloader."))
+                    L("Download di browser otomatis diambil alih wwwrap."))
         }
         return (L("Ekstensi belum terhubung"), L("Pasang untuk Chrome, Edge, Brave, Arc, Dia, atau Firefox."))
     }
@@ -503,6 +503,7 @@ private struct AppearanceSettings: View {
 
 private struct AboutSettings: View {
     @ObservedObject private var updates = UpdateChecker.shared
+    @ObservedObject private var updater = AppUpdater.shared
     @AppStorage(SettingsKey.autoCheckUpdates) private var autoCheck = true
     @State private var copied = false
 
@@ -515,7 +516,7 @@ private struct AboutSettings: View {
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Theme.onPrimary))
             VStack(alignment: .leading, spacing: 4) {
-                Text("MacDownloader")
+                Text("wwwrap")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Text(L("Versi %@", updates.currentVersion) + (updates.currentBuild.isEmpty ? "" : " (\(updates.currentBuild))"))
@@ -541,14 +542,17 @@ private struct AboutSettings: View {
                 .disabled(updates.state == .checking)
             }
             if let version = updates.availableVersion {
-                SettingsRow(title: L("Pasang versi %@", version),
-                            detail: L("Tempel perintah ini di Terminal. App akan ditutup, diganti, lalu dibuka lagi.")) {
+                SettingsRow(title: L("Pasang versi %@", version), detail: installDetail) {
+                    UpdateButton(version: version)
+                }
+                SettingsRow(title: L("Lewat Terminal"),
+                            detail: L("Kalau update otomatis gagal, tempel perintah ini di Terminal.")) {
                     HStack(spacing: 8) {
                         Button(copied ? L("Tersalin") : L("Salin perintah")) {
                             updates.copyInstallCommand()
                             copied = true
                         }
-                        .buttonStyle(PrimaryButtonStyle())
+                        .buttonStyle(SecondaryButtonStyle())
                         Button(L("Halaman rilis")) { updates.openReleasesPage() }
                             .buttonStyle(SecondaryButtonStyle())
                     }
@@ -565,6 +569,11 @@ private struct AboutSettings: View {
                     .buttonStyle(SecondaryButtonStyle())
             }
         }
+    }
+
+    private var installDetail: String {
+        if case .failed(let message) = updater.phase { return message }
+        return L("Sekali klik: diunduh, dipasang, lalu app dibuka lagi. Download yang berjalan dilanjutkan.")
     }
 
     private var statusTitle: String {

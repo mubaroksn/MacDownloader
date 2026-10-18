@@ -9,7 +9,7 @@ enum ExtensionInstaller {
         }
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacDownloader", isDirectory: true)
+            .appendingPathComponent("wwwrap", isDirectory: true)
         let dest = base.appendingPathComponent("ChromeExtension", isDirectory: true)
         do {
             try fm.createDirectory(at: base, withIntermediateDirectories: true)
@@ -98,7 +98,7 @@ struct BrowserPage: View {
                         }
                         .labelStyle(CompactLabelStyle())
 
-                        Text(LocalizedStringKey(L("**Firefox:** unduh file MacDownloader-Firefox (.xpi) dari halaman Releases di GitHub, lalu seret ke jendela Firefox dan klik Add.")))
+                        Text(LocalizedStringKey(L("**Firefox:** unduh file wwwrap-Firefox (.xpi) dari halaman Releases di GitHub, lalu seret ke jendela Firefox dan klik Add.")))
                             .font(.system(size: 12.5))
                             .foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -108,11 +108,11 @@ struct BrowserPage: View {
                         SectionTitle(title: L("Tanpa ekstensi"), detail: L("Safari, atau app apa pun"))
                         HStack(alignment: .top, spacing: 14) {
                             feature("doc.on.clipboard", L("Salin link"),
-                                    L("Klik kanan link download › Copy Link. MacDownloader langsung menawarkan untuk mengunduhnya."))
+                                    L("Klik kanan link download › Copy Link. wwwrap langsung menawarkan untuk mengunduhnya."))
                             feature("link", L("Link berbagi dikenali"),
                                     L("Google Drive, Google Docs, Dropbox, GitHub, SharePoint, MediaFire, dan Pixeldrain diubah ke file aslinya."))
                             feature("arrow.down.doc", L("Tarik & lepas"),
-                                    L("Tarik link ke jendela MacDownloader, atau tempel di tombol Tambah."))
+                                    L("Tarik link ke jendela wwwrap, atau tempel di tombol Tambah."))
                         }
                         Toggle(L("Tawarkan download saat link file disalin"), isOn: $monitorClipboard)
                             .toggleStyle(.switch)
@@ -125,13 +125,13 @@ struct BrowserPage: View {
                         SectionTitle(title: L("Cara kerja ekstensi"), detail: nil)
                         HStack(alignment: .top, spacing: 14) {
                             feature("arrow.down.circle", L("Tangkap otomatis"),
-                                    L("Download di browser langsung dialihkan ke MacDownloader."))
+                                    L("Download di browser langsung dialihkan ke wwwrap."))
                             feature("cursorarrow.click.2", L("Klik kanan"),
-                                    L("Pilih \"Download dengan MacDownloader\" pada link, video, atau gambar."))
+                                    L("Pilih \"Download dengan wwwrap\" pada link, video, atau gambar."))
                             feature("lock", L("Tetap login"),
                                     L("Cookie dan referrer ikut dikirim, jadi file Google Drive pribadi dan situs login tetap bisa."))
                             feature("arrow.uturn.backward", L("Tidak pernah gagal diam-diam"),
-                                    L("Kalau MacDownloader tidak bisa mengambil file-nya, download dikembalikan ke browser."))
+                                    L("Kalau wwwrap tidak bisa mengambil file-nya, download dikembalikan ke browser."))
                         }
                     }
                 }
@@ -148,9 +148,9 @@ struct BrowserPage: View {
             : connected ? L("Ekstensi terhubung") + (server.extensionBrowser.map { " · \($0)" } ?? "")
             : L("Ekstensi belum terhubung")
         let detail = !server.isRunning
-            ? L("Port %@ mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang MacDownloader.", String(LocalServer.port))
-            : connected ? L("Download di browser akan otomatis diambil alih MacDownloader.")
-            : L("Pasang ekstensi di bawah. Sementara itu, salin link download dan MacDownloader akan menawarkannya.")
+            ? L("Port %@ mungkin dipakai aplikasi lain. Tutup aplikasi itu lalu buka ulang wwwrap.", String(LocalServer.port))
+            : connected ? L("Download di browser akan otomatis diambil alih wwwrap.")
+            : L("Pasang ekstensi di bawah. Sementara itu, salin link download dan wwwrap akan menawarkannya.")
         return HStack(spacing: 14) {
             Circle()
                 .fill(color.opacity(0.15))

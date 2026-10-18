@@ -22,7 +22,7 @@ enum DownloadableLink {
 }
 
 /// IDM-style clipboard watching: copy a download link anywhere (any browser, chat, mail)
-/// and MacDownloader offers to download it. This works without any browser extension.
+/// and wwwrap offers to download it. This works without any browser extension.
 ///
 /// Cost: one `changeCount` read per second (a cheap integer IPC); the timer has 0.5 s
 /// tolerance so it coalesces with other wakeups. Contents are only read after a change,
